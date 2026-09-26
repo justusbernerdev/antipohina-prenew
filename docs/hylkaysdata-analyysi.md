@@ -84,6 +84,26 @@ löytäminen on koko haasteen ydin, joten niitä ei poisteta arvaamalla.
 
 ---
 
+---
+
+## Lisätieto 26.9.: miten he löysivät virolaiset
+
+Kysyttäessä KonkaS kertoi että virolaiset tekijät löytyivät **selaamalla TikTokia Virossa**.
+
+Tämä selittää Viro-aukon kokonaan. Kone lukee YouTubea, ja Viron YouTube-trendilistalla on vain
+27 videota. Heidän oma toimiva menetelmänsä pienimmässä markkinassa on siis juuri se kanava joka
+koneesta puuttuu.
+
+Se on johdonmukaista datan kanssa: TikTok on mukana 44 yhteistyössä 69:stä (64 %) ja YouTube
+22:ssa (32 %). **Mitä pienempi markkina, sitä enemmän löytö tapahtuu TikTokissa**, koska YouTuben
+puoli loppuu kesken.
+
+Käytännön seuraus: TikTok-haku ei ole lisäosa vaan se osa joka ratkaisee pienet markkinat, eli
+juuri sen mistä koko haaste kertoo. Maakohtainen TikTok-haku kaupallisen datapalvelun kautta on
+sama asia kuin TikTokin selaaminen maa-asetuksella, paitsi koneellisesti ja kirjattuna.
+
+---
+
 ## Mitä tämä tarkoittaa
 
 Pisteytys ei enää nojaa kymmenen toistuneen tekijän otokseen. Nyt sen takana on **69 onnistumista

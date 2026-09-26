@@ -157,12 +157,25 @@ Näistä 108:lla on sähköpostiosoite tiedossa suoraan kanavan kuvauksesta.
 
 ---
 
-## Yksi rehellinen puute
+## Yksi puute, ja te kerroitte itse sen syyn
 
-**Viro ei tuottanut yhtään tekijää**, vaikka teillä on sieltä kuusi yhteistyötä. Viron
-trendilistalla on vain 27 videota, ja kommentoijareitti ei tavoittanut virolaisia. Latvia ja
-Liettua jäivät myös ohuiksi.
+**Viro ei tuottanut yhtään tekijää**, vaikka teillä on sieltä kuusi yhteistyötä. Latvia ja Liettua
+jäivät myös ohuiksi.
 
-Pienin markkina on siis edelleen vaikein, mikä on täsmälleen se ongelma josta haaste kertoo.
-Tähän auttaisi eniten tieto siitä miten te itse löysitte ne kolme virolaista tekijää, koska Viro
-on myös se markkina jossa teillä ei ole yhtään agentuuria.
+Syy selvisi kun kertoitte miten löysitte virolaiset: **selasitte TikTokia Virossa.** Tämä versio
+lukee YouTubea, joten se etsii väärästä paikasta juuri siinä markkinassa jossa teidän oma
+menetelmänne toimii.
+
+Se on johdonmukaista kaiken muun kanssa mitä aineistosta näkyy. TikTok on mukana 44
+yhteistyössänne 69:stä eli 64 %:ssa, YouTube 22:ssa. Viron YouTube-trendilistalla on vain 27
+videota, eli pienessä markkinassa YouTube-puoli yksinkertaisesti loppuu kesken.
+
+**Mitä se vaatii.** TikTokin virallinen tutkimusrajapinta on rajattu akateemisiin ja
+voittoa tavoittelemattomiin toimijoihin, eli se ei ole kaupallisesti käytettävissä. Sama löytö
+tehdään kaupallisen datapalvelun kautta maakohtaisella haulla, mikä on käytännössä sama asia kuin
+TikTokin selaaminen Viron asetuksella, paitsi että kone tekee sen kerralla ja kirjaa tulokset.
+
+Kustannus on muutamia euroja kertaluontoisesti, ei tilausta. Se on ainoa kohta koko ratkaisussa
+joka ei ole ilmainen, ja se on samalla se joka ratkaisee pienimmät markkinat.
+
+Tämä on siis tiedossa oleva ja hinnoiteltu aukko, ei yllätys.
