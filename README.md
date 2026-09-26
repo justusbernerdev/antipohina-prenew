@@ -111,8 +111,12 @@ Jakauma maittain on kuitenkin se kohta joka kannattaa näyttää kalvolla:
 | Unkari | 6 / 8 (75 %) | 2 |
 | Saksa | **8 / 10 (80 %)** | **0** |
 
-Mitä enemmän agentuuria, sitä vähemmän toistoa. Saksassa maksetaan välikädelle eniten ja saadaan
-kestäviä kumppanuuksia vähiten. Kotimarkkinalla, jossa he löytävät tekijät itse, on päinvastoin.
+Mitä enemmän agentuuria, sitä vähemmän toistoa. Saksassa agentuurimerkintöjä on eniten ja
+kestäviä kumppanuuksia vähiten. Kotimarkkinalla suhde on päinvastoin.
+
+> Sarakkeen merkitys on varmistettava ennen kuin luku menee kalvolle: tarkoittaako `Agency: Yes`
+> sitä että yhteistyö hankittiin agentuurin kautta, vai sitä että tekijällä on agentuuri?
+> Kysytty Akselilta, ks. [`docs/riskit-ja-kysymykset.md`](docs/riskit-ja-kysymykset.md) B5.
 
 **Tämä on koko discovery-työkalun arvolupaus heidän omilla numeroillaan.** Kone ei korvaa
 agentuuria hinnan takia vaan siksi, että itse löydetty kumppani jää.

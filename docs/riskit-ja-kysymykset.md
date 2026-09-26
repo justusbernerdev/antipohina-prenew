@@ -156,7 +156,29 @@ kirjausartefakti: tutumpi kumppani on kirjattu huolellisemmin. **Ei käytetä si
 
 **Ratkaisu.** Lasketaan aina n näkyviin, ei prosenttia tyhjästä. Korjattu jo `README.md`:hen.
 
-### B5. Emme tiedä agentuurin hintaa
+### B5. Emme tiedä mitä `Agency: Yes` tarkoittaa
+
+**Riski.** Sarakkeen otsikko on pelkkä `Agency` ja arvo `Yes` 27 rivillä. Se voi tarkoittaa
+kahta eri asiaa, ja ero muuttaa johtopäätöksen muotoilun:
+
+**a)** Yhteistyö hankittiin agentuurin kautta. Silloin luku on kustannus ja viesti kuuluu:
+välikäden kautta ostetut kumppanuudet eivät jää, joten ostakaa suoraan.
+
+**b)** Tekijällä on agentuuri, riippumatta siitä miten yhteistyö syntyi. Silloin luku on tekijän
+ominaisuus ja viesti kuuluu: **edustetut tekijät eivät jää, joten etsikää niitä joilla ei ole
+manageria.**
+
+Tulkinta b on discovery-työkalun kannalta jopa vahvempi, koska edustamattomat tekijät ovat
+täsmälleen ne pienet joita valmiit alustat eivät löydä.
+
+**Tila.** Avoin. Kysytään (kysymys 1). Havainto toiston ja agentuurin yhteydestä (toistuneista
+20 %, kertaluonteisista 49 %) pitää kummassakin tapauksessa, vain sanamuoto vaihtuu.
+
+**Ratkaisu ennen vastausta.** Käytä muotoilua joka on tosi kummassakin tapauksessa:
+*"agentuuriin kytkeytyneet yhteistyöt toistuvat harvemmin."* Älä väitä kustannuksesta ennen kuin
+tulkinta on vahvistettu.
+
+### B6. Emme tiedä agentuurin hintaa
 
 Agentuurihavainto on vahva (toistuneista 20 %, kertaluonteisista 49 %), mutta euromääräinen
 vaikutuslaskelma vaatii palkkion suuruuden.
@@ -226,13 +248,16 @@ Järjestetty sen mukaan, kuinka paljon vastaus muuttaa ratkaisua.
 
 **Ratkaisevat:**
 
-1. **Mitä agentuuripalkkio maksaa?** 39 % yhteistöistänne tuli agentuurin kautta ja Saksassa
-   8 kymmenestä. Tämä luku on vaikutuslaskelman kerroin.
-2. **Onko toistuva yhteistyö teille oikea onnistumisen mittari?** Rakennamme pisteytyksen sen
+1. **Mitä `Agency: Yes` tarkoittaa?** Tuliko yhteistyö agentuurin kautta, vai onko tekijällä
+   agentuuri? Koko johtopäätös kääntyy eri suuntaan sen mukaan, ks. B5. Tämä kysytään ensin,
+   koska se on nopea ja kaikki muu nojaa siihen.
+2. **Onko teillä dataa epäonnistumisista?** Kenelle otitte yhteyttä eikä vastannut, kuka
+   kieltäytyi, mikä yhteistyö tehtiin mutta ei tuottanut. Nyt näemme vain onnistumiset, emmekä
+   voi oppia mikä ei toimi. Raakalista riittää.
+3. **Onko toistuva yhteistyö teille oikea onnistumisen mittari?** Rakennamme pisteytyksen sen
    varaan, koska se on ainoa mittari joka aineistosta näkyy. Jos teillä on parempi, käytämme sitä.
-3. **Onko teillä dataa epäonnistumisista?** Kenelle otitte yhteyttä eikä vastannut, kuka kieltäytyi,
-   mikä yhteistyö tehtiin mutta ei tuottanut. Nyt näemme vain onnistumiset, emmekä voi oppia
-   mikä ei toimi.
+4. **Mitä agentuuri maksaa?** Haarukka riittää. Tämä on vaikutuslaskelman kerroin, emmekä halua
+   keksiä lukua itse. Kysytään vasta kun kysymys 1 on vastattu.
 
 **Tarkentavat:**
 

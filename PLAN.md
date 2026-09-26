@@ -37,9 +37,15 @@ Kaikki muu tässä dokumentissa on tuon luvun tuottamista ja todistamista.
 
 69 yhteistyötä, 51 tekijää, 11 maata. Neljä havaintoa ohjaavat rakennetta:
 
-**Agentuuri ei tuota kestäviä kumppanuuksia.** Toistuneista tekijöistä 20 % tuli agentuurin
-kautta, kertaluonteisista 49 %. Maatasolla sama kuvio on jyrkempi: Saksassa 8 yhteistyötä
-kymmenestä ostettiin välikädeltä ja toistoja on **nolla**. Suomessa 2/17 ja toistoja neljä.
+**Agentuuriin kytkeytyneet yhteistyöt eivät jää.** Toistuneista tekijöistä 20 % on merkitty
+agentuuriin, kertaluonteisista 49 %. Maatasolla kuvio on jyrkempi: Saksassa 8 yhteistyötä
+kymmenestä on agentuurimerkinnällä ja toistoja on **nolla**. Suomessa 2/17 ja toistoja neljä.
+
+> Varaus: sarakkeen otsikko on pelkkä `Agency` ja arvo `Yes`. Tarkoittaako se että yhteistyö
+> hankittiin agentuurin kautta, vai että tekijällä on agentuuri, on kysytty Akselilta. Havainto
+> pitää kummassakin tapauksessa, mutta johtopäätös kääntyy: joko ostakaa suoraan, tai etsikää
+> tekijöitä joilla ei ole manageria. Jälkimmäinen osoittaisi juuri tämän koneen vahvuuteen.
+> Ks. [`docs/riskit-ja-kysymykset.md`](docs/riskit-ja-kysymykset.md) kohta B5.
 
 **TikTok tuo volyymin, YouTube tuo suhteen.** TikTok on mukana 64 %:ssa yhteistöistä mutta se ei
 erottele toistuneita kertaluonteisista lainkaan (70 % vs 68 %). YouTube erottelee yli
@@ -191,7 +197,8 @@ onko hän molemmilla alustoilla.
 Yksi lause johon demo tiivistyy:
 
 > Löysimme X saksalaista pelitekijää joita ette ole kokeilleet, Y niistä on alle 50 000 tilaajan
-> kokoisia, ja te ostatte tällä hetkellä 80 % Saksan yhteistöistänne välikädeltä.
+> kokoisia, ja tällä hetkellä 8 kymmenestä Saksan yhteistyöstänne kulkee agentuurin kautta
+> ilman yhtään toistuvaa kumppanuutta.
 
 X ja Y ovat mittaustuloksia, eivät lupauksia. Savutesti kertoo ne.
 
