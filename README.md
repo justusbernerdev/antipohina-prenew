@@ -66,21 +66,24 @@ sinne avattiin varasto 2026. Sama Puolassa, Ranskassa, Alankomaissa ja Tanskassa
 parempi osumatarkkuus kuin Saksassa. Kukaan ei puhu Unkarista.
 
 **Toistuminen on ainoa julkinen laatumittari joka meillä on.** 10 tekijää 51:stä toistui, ja ne
-tuottivat 39 % kaikista yhteistöistä. Toisto tarkoittaa että yhteistyö kannatti.
+tuottivat 28 yhteistyötä eli 41 % kaikista. Toisto tarkoittaa että yhteistyö kannatti.
 
 ### Koko
 
-| | Mediaani | Haarukka |
-|---|---|---|
-| YouTube-tilaajat | 49 000 | 1 210 – 1 100 000 |
-| TikTok-seuraajat | 20 000 | 2 000 – 349 000 |
+| | Tekijöitä joilla luku | Mediaani | Haarukka |
+|---|---|---|---|
+| YouTube-tilaajat | 23 | 75 000 | 1 210 – 2 000 000 |
+| TikTok-seuraajat | 30 | 20 500 | 2 000 – 1 900 000 |
 
-YouTuben jakauma: **alle 50k tilaajaa 21 tekijää**, 50–250k 14 tekijää, yli 250k 4 tekijää.
+YouTuben jakauma: alle 50k tilaajaa 10 tekijää, 50–250k 9 tekijää, yli 250k 4 tekijää.
+TikTokin jakauma: alle 10k 9 tekijää, 10–50k 8 tekijää, yli 50k 13 tekijää.
 
-Tämä on tärkeä ja se kannattaa sanoa Akselille ääneen: hän arvioi painopisteen olevan 50k–250k
-haarukassa, mutta **heidän oma datansa on painottunut sen alapuolelle**. Enemmistö onnistuneista
-yhteistöistä on tekijöiden kanssa jotka eivät näy vaikuttaja-alustoilla lainkaan. Se vahvistaa
-haasteen premissin heidän omalla aineistollaan.
+**Akselin arvio pitää paikkansa.** YouTuben mediaani 75 000 osuu keskelle hänen mainitsemaansa
+50k–250k haarukkaa. Painopiste ei siis ole sen alapuolella.
+
+Tärkeämpi havainto on toinen: **puolella tekijöistä ei ole YouTube-lukua lainkaan** ja lähes
+puolella ei TikTok-lukua. Pienin mukana oleva on 1 210 tilaajaa ja 2 000 seuraajaa. Häntä ei löydä
+yhdeltäkään vaikuttaja-alustalta, ja juuri se on haasteen premissi.
 
 ### Nichet
 
@@ -96,13 +99,33 @@ kanava tavoittaa käyttäjän. Tämä kannattaa kysyä: onko se tarkoituksellist
 
 **27 yhteistyötä 69:stä eli 39 % tuli agentuurin kautta.** Se on suora kustannus ja samalla
 suora arvolupaus discovery-työkalulle: jokainen tekijä jonka kone löytää suoraan on yksi
-agentuuripalkkio vähemmän. Tämä on paras tapa vastata vaikutuskriteeriin euroina, ja luku on
-heidän omastaan aineistostaan.
+agentuuripalkkio vähemmän.
+
+Jakauma maittain on kuitenkin se kohta joka kannattaa näyttää kalvolla:
+
+| Maa | Agentuurin kautta | Toistuneita tekijöitä |
+|---|---|---|
+| Viro | **0 / 6** | 1 |
+| Suomi | 2 / 17 (12 %) | **4** |
+| Ruotsi | 6 / 16 (38 %) | 3 |
+| Unkari | 6 / 8 (75 %) | 2 |
+| Saksa | **8 / 10 (80 %)** | **0** |
+
+Mitä enemmän agentuuria, sitä vähemmän toistoa. Saksassa maksetaan välikädelle eniten ja saadaan
+kestäviä kumppanuuksia vähiten. Kotimarkkinalla, jossa he löytävät tekijät itse, on päinvastoin.
+
+**Tämä on koko discovery-työkalun arvolupaus heidän omilla numeroillaan.** Kone ei korvaa
+agentuuria hinnan takia vaan siksi, että itse löydetty kumppani jää.
 
 ### Kanava
 
-TikTok 26 yhteistyötä, YouTube 15, Twitch 2, molemmat 4. Loput merkitsemättä. TikTok on siis
-volyymissa edellä, mikä sopii Akselin ohjeeseen että TikTokissa raja on 4 000 seuraajaa.
+**TikTok on mukana 44 yhteistyössä 69:stä eli 64 %:ssa. YouTube 22:ssa eli 32 %:ssa.** Twitch 2,
+Instagram 1, merkitsemättä 6.
+
+TikTok ei siis ole tasavertainen YouTuben kanssa vaan kaksi kertaa isompi. Se sopii Akselin
+ohjeeseen että TikTokissa raja on 4 000 seuraajaa, ja se on samalla rakentamisen vaikein kohta:
+TikTokin virallinen tutkimusrajapinta on kaupallisilta suljettu. Reitti sen ympäri on kuvattu
+tiedostossa [`docs/datalahteet.md`](docs/datalahteet.md).
 
 ---
 
@@ -137,9 +160,13 @@ siemenet  →  laajennus  →  rikastus  →  pisteytys  →  CSV
 **1. Siemenet.** Heidän omat 51 tekijäänsä ovat opetusaineisto, ei pelkkä esimerkki. Ne kertovat
 mitä hyvä kumppani tarkoittaa juuri Prenewille: koko, niche, maa, kieli.
 
-**2. Laajennus.** Jokaisesta siemenestä YouTube Data API:n `relatedToVideoId` ja kanavien
-yhteisyleisö, TikTokista hashtagit ja ääniraidat. Tämä on se kohta joka löytää pienet: iso tekijä
-löytyy haulla, pieni löytyy **isoa lähellä olevasta verkostosta**.
+**2. Laajennus.** Jokaisesta siemenestä kanavan itse nostamat kanavat (`channelSections.list`,
+tyyppi `multipleChannels`) ja videoiden kommentoijien kanavat (`commentThreads.list`). Tämä on se
+kohta joka löytää pienet: iso tekijä löytyy haulla, pieni löytyy **isoa lähellä olevasta
+verkostosta**.
+
+> Aiempi versio nojasi `relatedToVideoId`-parametriin. Sitä ei ole olemassa, se poistettiin
+> API:sta 2023. Korvikkeet yllä ja koko kiintiölaskelma: [`docs/datalahteet.md`](docs/datalahteet.md).
 
 **3. Rikastus.** Akselin listaamat kentät: maa, tilaajat, keskimääräiset katselut per video
 30 tai 90 päivän ikkunassa, niche ja peli, yhteystieto kanavan about-kentästä.
