@@ -32,9 +32,16 @@ const VIDEOS_PER_SEED = Number(arg('videos', 4))    // videos to harvest comment
 const BUDGET = Number(arg('budget', 3000))          // hard quota ceiling for one run
 const OUT = arg('out', 'out')
 
-// Prenew's own range: TikTok floor 4k (Akseli), YouTube collaborations up to ~250k.
+// Bounds derived from their own rejection data (data/not-realised.json), not from guesses:
+//   rejected as "competitor / exclusivity": YouTube median 479k, range 110k-629k
+//   rejected as "too expensive":            YouTube 33k-48k but TikTok 79k-340k
+//   rejected as "too small":                YouTube 7.7k
+//   realised collaborations:                YouTube median 75k
+// So the reachable window is narrow, and above ~110k a creator is usually already taken.
 const MIN_SUBS = 4000
-const MAX_SUBS = 250_000
+const MAX_SUBS = 250_000          // outer bound for reporting
+const TAKEN_ZONE = 110_000        // above this: already with a competitor, or exclusive
+const PRICEY_TIKTOK = 80_000      // big TikTok with modest YouTube priced them out
 const MIN_VIDEOS = 5
 
 // ---------- quota-aware, cached API ----------
@@ -127,6 +134,27 @@ try {
 
 const isKnown = (title) => KNOWN.has(String(title).toLowerCase().trim())
 
+// Creators they already approached and rejected, with the reason. Without this the engine
+// happily promotes someone they turned down: Lewa scored 100 before this was added.
+const REJECTED = new Map()
+try {
+  const nr = JSON.parse(readFileSync(new URL('../data/not-realised.json', import.meta.url), 'utf8'))
+  for (const r of nr) {
+    const name = String(r.Creator || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim()
+    if (name) REJECTED.set(name, { reason: r['Reason category'], note: r['Reason (CRM notes)'], later: r['Later outcome'] })
+  }
+} catch { /* data file optional */ }
+
+const rejectedAs = (title) => REJECTED.get(String(title).toLowerCase().trim()) || null
+
+// Organisations and teams are not creators: "Big clan" was rejected as "not a creator".
+const ORGANISATION = /\b(clan|esports?|e-sports?|team|org|organisation|organization|academy|gaming house)\b/i
+
+// Competitor signals in the description. A creator who already promotes another PC shop is
+// either exclusive or expensive: 5 of 26 rejections were "competitor / exclusivity", the
+// single largest reason. These are the PC and refurb retailers in their markets.
+const COMPETITOR = /\b(dubaro|one\.de|alternate|mindfactory|memorypc|memory pc|csl.?computer|jimm'?s|verkkokauppa|gigantti|power\.fi|inet\.se|webhallen|komplett|proshop|elgiganten|back ?market|refurbed|mediamarkt|saturn|nbb|notebooksbilliger|caseking|corsair|nzxt|hyperx)\b/i
+
 // ---------- 1. seeds: per-country gaming charts ----------
 
 async function gamingCategoryId(region) {
@@ -192,6 +220,9 @@ function record(c, via, meta) {
     youthHint: YOUTH_HINT.test(desc),
     rigTalk: RIG_TALK.test(desc),
     known: isKnown(c.snippet.title),
+    rejected: rejectedAs(c.snippet.title),
+    organisation: ORGANISATION.test(c.snippet.title),
+    competitor: COMPETITOR.exec(desc)?.[0] || null,
   }
 }
 
@@ -361,8 +392,28 @@ for (const r of candidates.values()) {
   // Their market, not just any market.
   if (r.inTargetMarket) { score += 10 } else if (r.country) { score -= 20; reasons.push(`${r.country} ei ole heidän markkina`) }
 
-  // Too big is a real cost, not just a missing bonus.
-  if (r.subs > MAX_SUBS) { score -= 25; reasons.push('yli heidän haarukkansa') }
+  // Above the taken zone a creator is usually already with a competitor or priced as exclusive:
+  // their rejections for "competitor / exclusivity" had a YouTube median of 479k.
+  if (r.subs > TAKEN_ZONE) {
+    score -= 30
+    reasons.push(`${Math.round(r.subs / 1000)}k tilaajaa, tässä koossa 5/5 hylättiin kilpailijan tai eksklusiivisuuden takia`)
+  }
+  if (r.subs > MAX_SUBS) { score -= 20; reasons.push('selvästi yli heidän haarukkansa') }
+
+  // Already promotes another PC retailer. Largest single rejection reason in their own data.
+  if (r.competitor) { score -= 40; reasons.push(`mainitsee kilpailijan (${r.competitor})`) }
+
+  // An organisation has no persona to partner with.
+  if (r.organisation) { score -= 40; reasons.push('organisaatio, ei tekijä') }
+
+  // They already approached this creator and said no.
+  if (r.rejected) {
+    const later = r.rejected.later === 'Did collab later'
+    score -= later ? 10 : 50
+    reasons.unshift(later
+      ? `HYLÄTTIIN AIEMMIN (${r.rejected.reason}) mutta yhteistyö toteutui myöhemmin`
+      : `TE HYLKÄSITTE TÄMÄN: ${r.rejected.reason}`)
+  }
 
   // Niche that implies a PC purchase.
   const nw = nicheScore(`${r.title} ${r.desc} ${r.nicheText || ''}`)
@@ -406,9 +457,12 @@ const scored = [...candidates.values()]
   .filter((r) => r.inTargetMarket || !r.country)
   .sort((a, b) => b.score - a.score)
 
-// Known partners stay in the file as proof the model works, but never at the top of the list.
-const results = [...scored.filter((r) => !r.known), ...scored.filter((r) => r.known)]
+// Known partners and previously rejected creators stay in the file, because finding them proves
+// the model works. They never sit at the top of the list, because they are not new leads.
+const seen = (r) => r.known || r.rejected
+const results = [...scored.filter((r) => !seen(r)), ...scored.filter(seen)]
 const alreadyKnown = scored.filter((r) => r.known)
+const alreadyRejected = scored.filter((r) => r.rejected)
 
 const csvCols = [
   ['pisteet', (r) => r.score],
@@ -428,6 +482,8 @@ const csvCols = [
   ['puhuu_laitteistosta', (r) => (r.rigTalk ? 'kyllä' : '')],
   ['nuori_yleiso', (r) => (r.youthHint ? 'kyllä' : '')],
   ['jo_kumppani', (r) => (r.known ? 'kyllä' : '')],
+  ['aiemmin_hylatty', (r) => (r.rejected ? r.rejected.reason : '')],
+  ['kilpailija', (r) => r.competitor || ''],
   ['loytyi', (r) => (r.via === 'chart' ? 'maalista' : 'kommentoija')],
   ['perustelu', (r) => r.reason],
 ]
@@ -458,6 +514,9 @@ console.log(`  molemmilla alustoilla:   ${results.filter((r) => r.tiktok).length
 console.log(`  yhteystieto tiedossa:    ${results.filter((r) => r.email).length}`)
 console.log(`  merkitty nuori yleisö:   ${results.filter((r) => r.youthHint).length}`)
 console.log(`  jo heidän kumppaneitaan: ${alreadyKnown.length}${alreadyKnown.length ? ` (${alreadyKnown.map((r) => r.title).join(', ')})` : ''}`)
+console.log(`  aiemmin hylättyjä:       ${alreadyRejected.length}${alreadyRejected.length ? ` (${alreadyRejected.map((r) => `${r.title}: ${r.rejected.reason}`).join(', ')})` : ''}`)
+console.log(`  mainitsee kilpailijan:   ${results.filter((r) => r.competitor).length}`)
+console.log(`  yli 110k (jo varattuja): ${results.filter((r) => r.subs > TAKEN_ZONE).length}`)
 const byCountry = {}
 for (const r of results) byCountry[r.country || 'tuntematon'] = (byCountry[r.country || 'tuntematon'] || 0) + 1
 const spread = Object.entries(byCountry).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' | ')
