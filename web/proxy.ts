@@ -5,7 +5,12 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 const isPublic = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublic(req)) await auth.protect()
+  if (isPublic(req)) return
+  // Without unauthenticatedUrl, protect() answers 404 instead of sending people to sign in.
+  await auth.protect({
+    unauthenticatedUrl: new URL('/sign-in', req.url).toString(),
+    unauthorizedUrl: new URL('/sign-in', req.url).toString(),
+  })
 })
 
 export const config = {
