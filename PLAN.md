@@ -75,14 +75,20 @@ Kaikki kutsut ovat id-pohjaisia. Haku on omassa kiintiöämpärissään (noin 10
 kun muut endpointit jakavat 10 000 yksikköä ja `channels.list` ottaa 50 kanavaa yhdellä yksiköllä.
 **Siksi ei etsitä hakemalla vaan verkostosta.**
 
-**1. Siemen.** `videos.list` parametreilla `chart=mostPopular`, `regionCode`, `videoCategoryId`.
-Yksi yksikkö per maa. Maa tulee sisään tästä, ei kanavan omasta maakentästä.
+**1. Siemen, ja tämä on pääreitti.** `videos.list` parametreilla `chart=mostPopular`, `regionCode`
+ja pelikategoria per maa. **Mitattu: 29 yksiköllä 335 kanavaa, joista 97 osuu Prenewin haarukkaan
+ja 269 esiintyy vain yhdessä maassa.** Maa ja kieli tulevat sisään tästä, eivät kanavan tyhjästä
+maakentästä.
 
-**2. Laajennus, kolme rinnakkaista reittiä.**
-Kanavan itse nostamat kanavat (`channelSections.list`, tyyppi `multipleChannels`) ovat ihmisen
-kuratoima lista samaa nicheä ja kieltä. Videoiden kommentoijat (`commentThreads.list`, 100
-kommenttia yhdellä yksiköllä) ovat se reitti joka löytää ne joita alustat eivät näe. Maakohtaiset
-siemenet täydentävät kun kaksi ensimmäistä ovat ohuita.
+**2. Laajennus kommentoijista.** Siemenlistan tekijöiden videoiden kommentoijat
+(`commentThreads.list`, 100 kommenttia yhdellä yksiköllä). **Mitattu tuotto 1,2 tekijää per
+video**, ja löydetyt ovat 500–9 000 tilaajan kokoisia, eli täsmälleen se joukko jota
+vaikuttaja-alustat eivät näe. Tämä reitti vastaa haasteen varsinaiseen kysymykseen.
+
+> Alkuperäinen suunnitelma nojasi myös nostettuihin kanaviin (`channelSections.list`,
+> `multipleChannels`). Mittaus kaatoi sen: **nolla osumaa viidestä tekijästä.** Reitti on
+> poistettu. Kaikki luvut ja perustelut:
+> [`docs/savutesti-tulokset.md`](docs/savutesti-tulokset.md).
 
 **3. Rikastus.** `channels.list` 50 kanavaa per yksikkö: tilaajat, katselut, kuvaus, maa, uploads.
 Katselut per video lasketaan uploads-listalta 30 tai 90 päivän ikkunassa.
