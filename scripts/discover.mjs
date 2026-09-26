@@ -52,6 +52,14 @@ mkdirSync(OUT, { recursive: true })
 let units = 0
 let cacheHits = 0
 
+// Stage-by-stage bookkeeping, so the view can show what the engine did rather than only
+// what it produced. Written to out/pipeline.json.
+const stages = []
+const stage = (name, count, note) => {
+  stages.push({ name, count, note, unitsAfter: units })
+  return count
+}
+
 async function api(endpoint, params) {
   const key = createHash('sha1').update(endpoint + JSON.stringify(params)).digest('hex')
   const path = `cache/${endpoint}-${key}.json`
@@ -190,6 +198,8 @@ for (const market of MARKETS) {
   }
 }
 
+stage('Maakohtaiset pelilistat', MARKETS.length, 'yksi kutsu per markkina')
+stage('Kanavia listoilta', discovered.size, 'julkisesti löydettävissä')
 console.log(`\nChart channels: ${discovered.size}`)
 
 // ---------- 2. enrich chart channels, pick expansion seeds ----------
@@ -240,6 +250,7 @@ for (const market of MARKETS) {
     .slice(0, SEEDS_PER_MARKET)
   seeds.push(...inMarket)
 }
+stage('Siemeniä laajennukseen', seeds.length, 'oikeita tekijöitä haarukassa, pienimmät ensin')
 console.log(`Expansion seeds: ${seeds.length}`)
 
 // ---------- 3. expansion: commenters ----------
@@ -280,6 +291,7 @@ for (const seed of seeds) {
 }
 
 const newIds = [...discovered.keys()].filter((id) => !candidates.has(id))
+stage('Kommentoijia', newIds.length, `sata kanavatunnusta per kiintiöyksikkö · ${commentsDisabled} videolla kommentit pois`)
 console.log(`Commenter channels: ${newIds.length} (${commentsDisabled} videos had comments off)`)
 
 // ---------- 4. enrich the commenters ----------
@@ -328,6 +340,7 @@ const forStats = [...candidates.values()]
   .filter((r) => !r.sideChannel && r.videos >= MIN_VIDEOS && r.subs >= 500)
   .sort((a, b) => b.subs - a.subs)
 
+stage('Oikeita tekijöitä', forStats.length, 'vähintään 5 videota ja 500 tilaajaa, sivukanavat karsittu')
 console.log(`Measuring recent performance for ${forStats.length} channels...`)
 for (const r of forStats) {
   try { await recentStats(r) } catch (e) { if (e.message.includes('budget')) break }
@@ -497,8 +510,11 @@ const csv = [
   ...results.map((r) => csvCols.map(([, f]) => esc(f(r))).join(',')),
 ].join('\n')
 
+stage('Heidän markkinoillaan', results.length, 'muut maat pudotettu, tuntemattomat jätetty')
+
 writeFileSync(`${OUT}/creators.csv`, csv)
 writeFileSync(`${OUT}/creators.json`, JSON.stringify(results, null, 1))
+writeFileSync(`${OUT}/pipeline.json`, JSON.stringify({ stages, units, cacheHits, markets: MARKETS }, null, 1))
 
 const inRange = results.filter((r) => r.subs >= MIN_SUBS && r.subs <= MAX_SUBS)
 const small = results.filter((r) => r.subs < 50_000)

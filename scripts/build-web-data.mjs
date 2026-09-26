@@ -67,14 +67,24 @@ const trimmed = creators.map((r) => ({
   rigTalk: r.rigTalk,
   youthHint: r.youthHint,
   known: r.known,
+  rejected: r.rejected || null,
+  competitor: r.competitor || null,
   via: r.via,
   reason: r.reason,
 }))
+
+// Stage counts from the engine's own bookkeeping. quotaUnits is the first (cold) run:
+// re-runs cost almost nothing because every response is cached on disk.
+let pipeline = []
+try {
+  pipeline = JSON.parse(readFileSync('out/pipeline.json', 'utf8')).stages
+} catch { /* optional */ }
 
 const out = {
   runDate: src.match(/\d{4}-\d{2}-\d{2}/)?.[0] || null,
   quotaUnits: 1345,
   dailyQuota: 10000,
+  pipeline,
   creators: trimmed,
   ownData,
   platform,
@@ -90,7 +100,15 @@ const out = {
     rigTalk: trimmed.filter((r) => !r.known && r.rigTalk).length,
     youthFlagged: trimmed.filter((r) => r.youthHint).length,
     knownFound: trimmed.filter((r) => r.known).map((r) => r.title),
+    rejectedFound: trimmed.filter((r) => r.rejected).map((r) => ({ title: r.title, reason: r.rejected.reason })),
+    takenZone: trimmed.filter((r) => r.subs > 110_000).length,
+    withCompetitor: trimmed.filter((r) => r.competitor).length,
   },
+  rejections: JSON.parse(readFileSync('data/not-realised.json', 'utf8')).reduce((acc, r) => {
+    const k = String(r['Reason category'])
+    acc[k] = (acc[k] || 0) + 1
+    return acc
+  }, {}),
 }
 
 mkdirSync('web/app', { recursive: true })
