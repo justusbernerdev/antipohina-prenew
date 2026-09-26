@@ -7,6 +7,24 @@ ajoissa. Tiedosto on tehty siksi, että jos aika riittää, työ alkaa tästä e
 
 ---
 
+## 0. Kuka Prenew on
+
+Espoolainen verkkokauppa joka myy **kunnostettuja pelitietokoneita**. Nimi tulee sanoista
+pre-owned ja new. Koneet ostetaan takaisin, kunnostetaan, testataan ja myydään eteenpäin 12
+kuukauden takuulla. Kierrätys on osa arvolupausta, ei sivuhuomio.
+
+Tuotekategorioissa on hintaportaat (Budget, Best Value, Best Performance), RGB-koneet ja
+**Vanhempien valinta**, sekä sivu `gaming-pc-for-kids`.
+
+Tämä selittää heidän vaikuttajadatansa. Kunnostettu kone on uutta edullisempi, joten kohderyhmä
+on hintatietoinen. Minecraft ja Fortnite ovat heidän isoimmat nichensä, eli yleisö on lapsia ja
+maksaja on vanhempi. Halpa hinta ja ympäristöperuste ovat juuri ne kaksi argumenttia joilla
+vanhempi vakuutetaan.
+
+Markkinointimalli: tekijä saa oman sivun ja alennuskoodin, ja myynti mitataan kassalla koodista.
+
+---
+
 ## 1. Mitä he pyysivät
 
 > *"Build a tool or workflow that automates the discovery of relevant influencers with a particular
