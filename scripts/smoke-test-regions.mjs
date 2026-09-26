@@ -60,12 +60,14 @@ for (let i = 0; i < ids.length; i += 50) {
   for (const c of r.items || []) {
     const meta = all.get(c.id)
     rows.push({
+      id: c.id,
       title: c.snippet.title,
       country: c.snippet.country || null,
       subs: Number(c.statistics.subscriberCount || 0),
       markets: [...meta.markets].join(','),
       lang: [...meta.lang].join(','),
       tiktok: /tiktok\.com\/@([\w.]+)/i.exec(c.snippet.description || '')?.[1] || null,
+      desc: (c.snippet.description || '').replace(/\s+/g, ' ').slice(0, 300),
     })
   }
 }
@@ -81,7 +83,23 @@ console.log(`With TikTok in description:      ${rows.filter((r) => r.tiktok).len
 console.log(`Single-market only (local):      ${rows.filter((r) => !r.markets.includes(',')).length}`)
 console.log(`Quota used: ${units} units\n`)
 
+// A national trending chart is full of big creators' side channels and clip channels.
+// Those look great on paper (high views per subscriber) but have no persona to partner with.
+const SIDE_CHANNEL = /(\s\+$|\bVOD(s)?\b|\bclips?\b|\bextra\b|\bPLUS\b|\bshorts\b|\barchive\b|\bhighlights?\b|\bbest of\b|\bmontage\b)/i
+const FAN_CHANNEL = /(unofficial|nem hivatalos|rajongói|fan\s?(channel|page|edits?)|not affiliated)/i
+
+const flagged = rows.filter((r) => SIDE_CHANNEL.test(r.title) || FAN_CHANNEL.test(r.desc))
+const flaggedInRange = inRange.filter((r) => SIDE_CHANNEL.test(r.title) || FAN_CHANNEL.test(r.desc))
+console.log(`Sivu- tai klippikanavia:         ${flagged.length} / ${rows.length} kaikista`)
+console.log(`   ja haarukan sisällä:          ${flaggedInRange.length} / ${inRange.length}`)
+console.log(`Haarukka ilman niitä:            ${inRange.length - flaggedInRange.length}\n`)
+
+console.log('Merkityt (näyte):')
+for (const r of flagged.slice(0, 12)) console.log(`   ${String(r.subs).padStart(7)}  ${r.title}`)
+console.log()
+
 console.log('In range, smallest first:')
-for (const r of inRange.sort((a, b) => a.subs - b.subs).slice(0, 30)) {
-  console.log(`  ${String(r.subs).padStart(7)}  ${(r.country || '??').padEnd(3)} ${r.markets.padEnd(12)} ${r.lang.padEnd(6)} ${r.title}${r.tiktok ? `  tt:@${r.tiktok}` : ''}`)
+for (const r of inRange.sort((a, b) => a.subs - b.subs).slice(0, 20)) {
+  console.log(`  ${String(r.subs).padStart(7)}  ${(r.country || '??').padEnd(3)} ${r.markets.padEnd(10)} ${r.lang.padEnd(6)} ${r.title}${r.tiktok ? `  tt:@${r.tiktok}` : ''}`)
+  console.log(`           https://www.youtube.com/channel/${r.id}`)
 }

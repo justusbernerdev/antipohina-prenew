@@ -103,6 +103,19 @@ haetaan muutenkin. Seuraajaluvut vahvistetaan maksullisesta lähteestä vain fin
 **6. Pisteytys.** Molemmilla alustoilla, yleisö elossa (katselut per tilaaja), niche-etäisyys
 siemeniin, kieli ja maa, riskit (tauko, romahtaneet katselut, epäsuhtainen kasvu).
 
+Kaksi karsintaa jotka mittaus lisäsi:
+
+**Sivu- ja klippikanavat pois.** Kansalliset trendilistat täyttyvät isojen tekijöiden
+sivukanavista: mitattuna 10 osumaa 97:stä. Tunnusmerkit nimessä (`+`, `VOD`, `Clips`, `Extra`,
+`PLUS`, `Best of`) tai kuvauksessa (*unofficial*, *rajongói*, *fan channel*). Ne näyttävät
+luvuissa parhailta mutta niillä ei ole persoonaa jonka kanssa tehdä yhteistyötä.
+
+**Katselusuhteelle yläraja, ei vain alaraja.** 91 % tilaajamäärästä on terve yleisö, 478 % on
+varoitusmerkki lainatusta sisällöstä. Molemmat rajat tarvitaan.
+
+**Niche painotetaan sen mukaan myykö se konetta.** Minecraft ja Fortnite ovat heidän
+toimivimmat, ja ne vaativat koneen. Geometry Dash pyörii millä tahansa. Peliaiheinen ei riitä.
+
 **7. Ulostulo.** CSV ja JSON. Jokaisella rivillä **perustelu**: mistä löytyi ja miksi se sopii.
 
 ---

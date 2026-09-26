@@ -140,6 +140,7 @@ console.log(`\nQuota used: ${searchUnits} search calls, ${otherUnits} units`)
 console.log('\nTop 15 small creators found:')
 for (const c of small.sort((a, b) => b.subs - a.subs).slice(0, 15)) {
   console.log(`  ${String(c.subs).padStart(7)} subs  ${c.country || '??'}  ${c.title}${c.tiktok ? `  tiktok:@${c.tiktok}` : ''}  [${c.via}]`)
+  console.log(`           https://www.youtube.com/channel/${c.id}`)
 }
 
 console.log(`\nVerdict: ${small.length >= 20 ? 'PROCEED. Expansion yields small creators.' : 'WEAK. Rethink expansion before building.'}`)

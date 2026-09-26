@@ -82,6 +82,52 @@ yksikön hinnalla, ja reitti B tuottaa sen hännän joka vastaa haasteen varsina
 
 ---
 
+## Kolme kanavaa lähiluettuna, ja mitä ne paljastivat
+
+Yksittäisten osumien tarkastelu (`scripts/inspect-channel.mjs`) tuotti kaksi suodatinta joita
+suunnitelmassa ei ollut.
+
+**Täysosuma: Minecraft Tietäjä** (FI, 9 290 tilaajaa, 185 videota). 8 415 katselua per video eli
+**91 % tilaajamäärästä**, julkaisee lähes päivittäin, kieli `fi`, maa merkitty, ja tekee
+yhteistöitä muiden suomalaisten kanssa. Minecraft on Prenewin isoin niche. Tällaista ei löydä
+yhdeltäkään vaikuttaja-alustalta.
+
+**Väärä osuma joka näyttää parhaalta: JectroSpec** (HU, 19 600 tilaajaa). Katselusuhde **478 %**,
+mikä näyttää luvuissa poikkeukselliselta. Kuvaus paljastaa miksi: *"Nem hivatalos TheVR és Nessaj
+rajongói montázsok"*, eli epävirallisia fanimontaaseja toisista tekijöistä. Kanavalla ei ole omaa
+persoonaa jota seurattaisiin, joten vaikuttajayhteistyö ei toimi.
+
+**Rajatapaus: SPIKE** (EE, 839 tilaajaa). Kuvaus alkaa *"I'm a young trans Estonian geometry dash
+player"*. Tekijä kertoo itse olevansa nuori, eli tämä on juuri se tapaus jota varten
+alaikäisyysmerkintä on olemassa. Lisäksi Geometry Dash pyörii millä tahansa koneella, eli niche ei
+myy pelitietokonetta vaikka se on peliaiheinen.
+
+### Uusi suodatin 1: sivu- ja klippikanavat
+
+Kansalliset trendilistat täyttyvät isojen tekijöiden sivukanavista. **Mitattu: 16 kanavaa 335:stä
+ja 10 osumaa 97:stä haarukan sisällä**, eli kymmenesosa. Tunnusmerkit ovat nimessä tai kuvauksessa:
+`+`, `VOD`, `Clips`, `Extra`, `PLUS`, `Best of`, `montage`, tai kuvauksessa *unofficial*,
+*nem hivatalos*, *rajongói*, *fan channel*.
+
+Esimerkkejä merkityistä: Zsozeatya VOD, Wojan PLUS, DrDonut Clips, Barni. VOD, Shogy +,
+Royalistiq Extra, Kevko +.
+
+Yksi säännönmukaisuus riittää suodattimeksi, ja **haarukkaan jää 87 käyttökelpoista**.
+
+### Uusi suodatin 2: myykö niche konetta
+
+Peliaiheinen ei riitä. Minecraft ja Fortnite ovat Prenewin toimivimmat nichet heidän omassa
+datassaan, ja ne vaativat koneen. Geometry Dash ei. Nichen painotus tulee heidän omista
+onnistumisistaan, ei siitä että video on pelivideo.
+
+### Katselusuhde on signaali kahteen suuntaan
+
+91 % tilaajamäärästä on terve yleisö. **478 % on varoitusmerkki**, ei kiitettävä tulos: se kertoo
+tyypillisesti että sisältö ei ole tekijän omaa vaan lainattua. Pisteytyksessä tarvitaan siis
+molemmat rajat, ylä- ja alaraja.
+
+---
+
 ## Mitä tämä tarkoittaa demon kannalta
 
 Maakohtainen lista on julkinen ja kenen tahansa haettavissa, joten pelkkä reitti C ei riitä
