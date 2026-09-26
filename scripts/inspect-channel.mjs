@@ -20,7 +20,16 @@ async function api(endpoint, params) {
 
 const ch = await api('channels', { part: 'snippet,statistics,contentDetails', id: ids.join(',') })
 
-for (const c of ch.items || []) {
+const found = ch.items || []
+if (!found.length) {
+  console.error(`Yhtään kanavaa ei löytynyt tunnuksilla: ${ids.join(', ')}`)
+  console.error('Tunnus on muodossa UC + 22 merkkiä, esim. UCUkDN6QMCFo4GAcWltB8wcQ')
+  process.exit(1)
+}
+const missing = ids.filter((id) => !found.some((c) => c.id === id))
+if (missing.length) console.error(`Ei löytynyt: ${missing.join(', ')}\n`)
+
+for (const c of found) {
   const s = c.statistics
   console.log(`\n=== ${c.snippet.title} ===`)
   console.log(`https://www.youtube.com/channel/${c.id}`)
