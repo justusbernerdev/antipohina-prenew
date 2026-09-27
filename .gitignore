@@ -11,3 +11,9 @@ web/node_modules
 web/.next
 web/.vercel
 web/next-env.d.ts
+
+# Machine-local run state. The ledger of which creators have been seen is per-installation, and
+# committing it would make a fresh clone report zero new creators on its first run. The run journal
+# is the same: it describes this machine's history, and the view's copy of it lives in data.json.
+data/seen.json
+data/runs.jsonl
