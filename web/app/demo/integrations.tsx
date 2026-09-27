@@ -7,7 +7,7 @@ import { countryName } from './countries'
 
 const f = (n: number) => n.toLocaleString('fi-FI')
 
-const PRE = 'overflow-x-auto rounded-brand-lg bg-surface p-6 font-mono text-[15px] leading-[1.6] whitespace-pre'
+const PRE = 'overflow-x-auto rounded-brand-lg bg-surface p-4 font-mono text-[13px] leading-[1.6] whitespace-pre sm:p-6 sm:text-[15px]'
 const LABEL = 'text-sm tracking-[0.14em] text-ink-3'
 
 const BASE = 'https://prenew.justusberner.com'
@@ -33,11 +33,11 @@ export function ApiTab({ cr, rows, quota, nicheKeys }: { cr: Criteria; rows: Cre
   }))
 
   return (
-    <section className="flex max-w-[980px] flex-col gap-10">
-      <h1 className="font-display text-[40px] leading-[1.25] font-semibold tracking-[-0.02em]">
+    <section className="flex max-w-[980px] flex-col gap-8 sm:gap-10">
+      <h1 className="font-display text-[28px] leading-[1.2] font-semibold tracking-[-0.02em] sm:text-[34px] sm:leading-[1.25] lg:text-[40px]">
         Sama pyyntö ilman käyttöliittymää.
       </h1>
-      <p className="max-w-[720px] text-[19px] leading-[1.5] text-ink-2">
+      <p className="max-w-[720px] text-[17px] leading-[1.5] text-ink-2 sm:text-[19px]">
         Yksi kutsu. Kriteerit ovat ne jotka valitsit Dataflow-näkymässä.{' '}
         <code className="font-mono text-[17px]">Accept: text/csv</code> palauttaa saman listan CSV:nä.
       </p>
@@ -84,12 +84,12 @@ export function McpTab({ cr, rows, nicheKeys }: { cr: Criteria; rows: Creator[];
   } -tekijöitä${cr.flags.contact ? ', joilla on yhteystieto' : ''}.`
 
   return (
-    <section className="flex max-w-[980px] flex-col gap-10">
-      <h1 className="font-display text-[40px] leading-[1.25] font-semibold tracking-[-0.02em]">
+    <section className="flex max-w-[980px] flex-col gap-8 sm:gap-10">
+      <h1 className="font-display text-[28px] leading-[1.2] font-semibold tracking-[-0.02em] sm:text-[34px] sm:leading-[1.25] lg:text-[40px]">
         Teidän agenttinne kysyy suoraan. Kuusi työkalua, ei asennusta.
       </h1>
 
-      <div className="flex flex-col gap-4 rounded-brand-lg border-2 border-forest p-7">
+      <div className="flex flex-col gap-4 rounded-brand-lg border-2 border-forest p-5 sm:p-7">
         <span className={LABEL}>KYTKE CLAUDE CODEEN</span>
         <div className="flex flex-wrap items-center gap-4">
           <button
@@ -111,7 +111,7 @@ export function McpTab({ cr, rows, nicheKeys }: { cr: Criteria; rows: Creator[];
         {key && (
           <div className="flex flex-col gap-2.5">
             <span className="text-base text-ink-2">Aja terminaalissa, sitten kysy Claudelta.</span>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start">
               <pre className="min-w-0 flex-1 overflow-x-auto rounded-brand-md bg-surface p-5 font-mono text-sm leading-[1.6] whitespace-pre">
                 {cmd}
               </pre>
@@ -131,24 +131,24 @@ export function McpTab({ cr, rows, nicheKeys }: { cr: Criteria; rows: Creator[];
 
       <div className="flex flex-col gap-1">
         {TOOLS.map((t) => (
-          <div key={t.name} className="grid gap-6 rounded-brand-md bg-surface px-5 py-4 [grid-template-columns:minmax(0,1fr)_minmax(0,1.6fr)]">
+          <div key={t.name} className="grid gap-1 rounded-brand-md bg-surface px-4 py-3 sm:gap-6 sm:px-5 sm:py-4 sm:[grid-template-columns:minmax(0,1fr)_minmax(0,1.6fr)]">
             <span className="font-mono text-base font-semibold text-forest">{t.name}</span>
-            <span className="text-[17px] text-ink-2">{t.desc}</span>
+            <span className="text-[15px] text-ink-2 sm:text-[17px]">{t.desc}</span>
           </div>
         ))}
       </div>
 
       <div className="flex flex-col gap-2.5">
         <span className={LABEL}>ESIMERKKI</span>
-        <div className="flex flex-col gap-4 rounded-brand-lg bg-surface p-6">
-          <div className="text-[18px]">
+        <div className="flex flex-col gap-4 rounded-brand-lg bg-surface p-4 sm:p-6">
+          <div className="text-[16px] sm:text-[18px]">
             <span className="text-ink-3">Käyttäjä </span>
             {prompt}
           </div>
           <pre className="overflow-x-auto font-mono text-[15px] leading-[1.6] whitespace-pre">
             {`discover_creators(${JSON.stringify(asRequest(cr, nicheKeys))})`}
           </pre>
-          <div className="text-[18px]">
+          <div className="text-[16px] sm:text-[18px]">
             <span className="text-ink-3">Agentti </span>
             Löytyi {f(rows.length)} tekijää. Kärjessä{' '}
             {rows.slice(0, 3).map((r) => r.title).join(', ') || 'ei osumia'}. Haluatko CSV:n?
@@ -171,12 +171,12 @@ export function SeldaTab({ rows }: { rows: Creator[] }) {
   const withEmail = handover.filter((c) => c.email).length
 
   return (
-    <section className="flex max-w-[1100px] flex-col gap-12">
+    <section className="flex max-w-[1100px] flex-col gap-8 sm:gap-12">
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-[40px] leading-[1.25] font-semibold tracking-[-0.02em]">
+        <h1 className="font-display text-[28px] leading-[1.2] font-semibold tracking-[-0.02em] sm:text-[34px] sm:leading-[1.25] lg:text-[40px]">
           Selda on oma juttunsa.
         </h1>
-        <p className="max-w-[720px] text-[19px] leading-[1.5] text-ink-2 text-pretty">
+        <p className="max-w-[720px] text-[17px] leading-[1.5] text-ink-2 sm:text-[19px] text-pretty">
           Löytö toimii ilman tätä. Jos haluatte, valitut rivit siirtyvät Seldaan perusteluineen, ja
           avausviesti kirjoitetaan siitä miksi juuri tämä tekijä on listalla. Luonnos odottaa
           ihmistä, mitään ei lähetetä itsestään.

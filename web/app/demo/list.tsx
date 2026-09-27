@@ -43,7 +43,7 @@ export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 className="font-display text-[26px] font-bold">Lista</h2>
+        <h2 className="font-display text-[22px] font-bold sm:text-[26px]">Lista</h2>
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-base text-ink-3">
             Näytetään {Math.min(limit, rows.length)} / {f(rows.length)}
@@ -110,9 +110,9 @@ export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
       )}
 
       {/* ---------- the rows ---------- */}
-      <div className="overflow-x-auto">
-        <div className="flex min-w-[880px] flex-col gap-1">
-          <div className="grid grid-cols-[110px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)] gap-4 px-4 pb-2 text-[13px] tracking-[0.08em] text-ink-3">
+      <div className="lg:overflow-x-auto">
+        <div className="flex flex-col gap-1 lg:min-w-[880px]">
+          <div className="hidden grid-cols-[110px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)] gap-4 px-4 pb-2 text-[13px] tracking-[0.08em] text-ink-3 lg:grid">
             <span>TOIMENPIDE</span>
             <span>KANAVA</span>
             <span>TILAAJAT</span>
@@ -127,7 +127,7 @@ export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
             return (
               <div
                 key={c.id}
-                className="grid grid-cols-[110px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)] items-center gap-4 rounded-brand-md bg-surface px-4 py-3 text-base"
+                className="flex flex-col gap-2 rounded-brand-md bg-surface px-4 py-3 text-base lg:grid lg:grid-cols-[110px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-center lg:gap-4"
               >
                 <span className={`w-fit rounded-brand px-2 py-1 font-display text-[13px] font-bold ${ACTION_STYLE[act]}`}>
                   {act}
@@ -151,16 +151,18 @@ export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
                   </span>
                 </span>
 
-                <span className="nums flex flex-col">
+                <span className="nums flex items-baseline gap-2 lg:flex-col lg:items-start lg:gap-0">
+                  <span className="w-28 shrink-0 text-sm text-ink-3 lg:hidden">Tilaajat</span>
                   <span>{f(c.subs)}</span>
                   <span className="text-sm text-ink-3">
                     {c.medianViews != null ? `${f(c.medianViews)} katselua` : ''}
                   </span>
                 </span>
 
-                <span className="min-w-0 truncate">
+                <span className="flex min-w-0 items-baseline gap-2 lg:block lg:truncate">
+                  <span className="w-28 shrink-0 text-sm text-ink-3 lg:hidden">Yhteystieto</span>
                   {c.email ? (
-                    <a href={`mailto:${c.email}`} className="text-forest hover:underline">
+                    <a href={`mailto:${c.email}`} className="min-w-0 truncate text-forest hover:underline">
                       {c.email}
                     </a>
                   ) : (
@@ -168,7 +170,10 @@ export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
                   )}
                 </span>
 
-                <span className="text-sm text-ink-3">{warn.length ? warn.join(' · ') : 'ei varoituksia'}</span>
+                <span className="flex items-baseline gap-2 text-sm text-ink-3 lg:block">
+                  <span className="w-28 shrink-0 lg:hidden">Varoitukset</span>
+                  <span>{warn.length ? warn.join(' · ') : 'ei varoituksia'}</span>
+                </span>
               </div>
             )
           })}

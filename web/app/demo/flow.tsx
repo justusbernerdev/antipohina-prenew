@@ -140,13 +140,13 @@ export function Flow({
     }`
 
   return (
-    <section className="flex flex-col gap-14">
-      <div className="flex flex-col gap-5">
-        <h1 className="max-w-[880px] font-display text-[40px] leading-[1.25] font-semibold tracking-[-0.02em] text-pretty">
+    <section className="flex flex-col gap-10 sm:gap-14">
+      <div className="flex flex-col gap-4 sm:gap-5">
+        <h1 className="max-w-[880px] font-display text-[28px] leading-[1.2] font-semibold tracking-[-0.02em] sm:text-[34px] sm:leading-[1.25] lg:text-[40px] text-pretty">
           Kerro mitä etsit. Kone käy läpi valittujen maiden pelilistat ja niiden kommentoijat, ja
           palauttaa tekijät perusteluineen.
         </h1>
-        <p className="max-w-[760px] text-[19px] leading-[1.5] text-ink-2 text-pretty">
+        <p className="max-w-[760px] text-[17px] leading-[1.5] text-ink-2 sm:text-[19px] text-pretty">
           Ei asennusta eikä uutta työkalua. Sama moottori toimii tästä selaimesta, omasta
           järjestelmästänne API:n kautta ja agentista MCP:n kautta. Valitse kriteerit ja lataa lista.
           Käyttöön voi ottaa tänään.
@@ -191,7 +191,7 @@ export function Flow({
           ))}
         </Row>
 
-        <div className="flex flex-wrap items-center gap-5 pt-2 pl-[100px]">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 sm:pl-[100px]">
           <span className="text-[17px] text-ink-2">
             {sel.length} maata · {f(quota)} kiintiöyksikköä · 0 €
           </span>
@@ -200,7 +200,9 @@ export function Flow({
       </div>
 
       {/* ---------- the pipeline, in real per-market numbers ---------- */}
-      <div className="overflow-x-auto py-2 pb-6">
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] text-ink-3 lg:hidden">Vieritä sivusuunnassa nähdäksesi koko putken →</span>
+      <div className="-mx-4 overflow-x-auto px-4 py-2 pb-6 sm:mx-0 sm:px-0">
         <div className="flex min-w-[1160px] items-center">
           <div className="flex flex-col items-center gap-5">
             <span className="text-[15px] text-ink-3">Sisään</span>
@@ -271,17 +273,18 @@ export function Flow({
           </div>
         </div>
       </div>
+      </div>
 
       {/* ---------- what the focused stage does ---------- */}
-      <div className="-mt-4 grid gap-12 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+      <div className="-mt-2 grid gap-6 sm:-mt-4 sm:gap-12 sm:[grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
         <div className="flex flex-col gap-2">
           <span className="text-sm tracking-[0.14em] text-ink-3">{detail.n}</span>
           <h2 className="font-display text-[26px] font-bold">{detail.title}</h2>
-          <p className="max-w-[480px] text-[18px] leading-[1.5] text-ink-2 text-pretty">{detail.desc}</p>
+          <p className="max-w-[480px] text-[16px] leading-[1.5] text-ink-2 text-pretty sm:text-[18px]">{detail.desc}</p>
         </div>
-        <div className="flex flex-col gap-3 pt-7">
+        <div className="flex flex-col gap-3 sm:pt-7">
           {detail.items.map((k) => (
-            <div key={k} className="flex gap-3.5 text-[19px] leading-[1.4]">
+            <div key={k} className="flex gap-3.5 text-[17px] leading-[1.4] sm:text-[19px]">
               <span className="font-semibold text-forest">✓</span>
               <span>{k}</span>
             </div>
@@ -295,7 +298,7 @@ export function Flow({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <span className="w-[84px] shrink-0 text-[13px] tracking-[0.14em] text-ink-3">{label}</span>
+      <span className="w-full shrink-0 text-[13px] tracking-[0.14em] text-ink-3 sm:w-[84px]">{label}</span>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )

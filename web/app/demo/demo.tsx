@@ -43,26 +43,26 @@ export function Demo({ d }: { d: Data }) {
   )
 
   return (
-    <div className="mx-auto flex max-w-[1320px] flex-col gap-16 px-5 pt-10 pb-24 sm:px-12">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+    <div className="mx-auto flex max-w-[1320px] flex-col gap-10 px-4 pt-6 pb-16 sm:gap-16 sm:px-12 sm:pt-10 sm:pb-24">
+      <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-6">
         <div className="flex items-center gap-3 font-display text-[15px] font-bold tracking-[0.14em]">
           <span>ANTIPÖHINÄ</span>
           <span className="font-normal text-ink-3">×</span>
           <span className="text-forest">PRENEW</span>
         </div>
-        <nav className="flex items-center gap-8">
+        <nav className="-mx-4 flex items-center gap-6 overflow-x-auto px-4 sm:mx-0 sm:gap-8 sm:overflow-visible sm:px-0">
           {TABS.map(([k, label]) => (
             <button
               key={k}
               onClick={() => setTab(k)}
-              className={`cursor-pointer border-b-2 py-1.5 font-display text-base font-semibold transition-colors ${
+              className={`shrink-0 cursor-pointer border-b-2 py-1.5 font-display text-base font-semibold transition-colors ${
                 tab === k ? 'border-forest text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'
               }`}
             >
               {label}
             </button>
           ))}
-          <UserButton />
+          <span className="ml-auto shrink-0 sm:ml-0"><UserButton /></span>
         </nav>
       </header>
 
