@@ -17,3 +17,4 @@ web/next-env.d.ts
 # is the same: it describes this machine's history, and the view's copy of it lives in data.json.
 data/seen.json
 data/runs.jsonl
+data/quota.json

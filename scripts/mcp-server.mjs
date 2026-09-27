@@ -25,6 +25,14 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 import { bounds, appendOutcome, readOutcomes } from './bounds.mjs'
+
+// The engine's own daily ledger, so a tool answer can say how much of the day is left rather than
+// leaving the caller to find out by hitting the ceiling.
+function readQuota() {
+  const p = resolve(ROOT, 'data/quota.json')
+  if (!existsSync(p)) return { day: null, units: 0 }
+  try { return JSON.parse(readFileSync(p, 'utf8')) } catch { return { day: null, units: 0 } }
+}
 import { leadFor, handoverCandidates } from './analysis.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -77,6 +85,14 @@ const TOOLS = [
         seedsPerMarket: { type: 'number', description: 'Expansion seeds per market. More seeds reach deeper into the tail. Default 12.' },
         videosPerSeed: { type: 'number', description: 'Videos per seed to harvest commenters from. Default 4.' },
         budget: { type: 'number', description: 'Hard YouTube quota ceiling for this run, of 10000 free units per day. Default 3000.' },
+        searchThinMarkets: {
+          type: 'number',
+          description:
+            'Local-language search queries to run for any market whose own chart produced no local ' +
+            'seeds. Costs 100 quota units each, against 1 for every other call, so it is off by ' +
+            'default. It is the only route that reaches markets where the national chart holds no ' +
+            'local creators at all: Estonia went from 1 creator to 35 with 4 queries.',
+        },
         fresh: { type: 'boolean', description: 'Ignore the response cache. Costs real quota. Default false.' },
       },
     },
@@ -203,6 +219,7 @@ function runDiscover(args) {
   if (args.seedsPerMarket != null) argv.push(`--seeds=${args.seedsPerMarket}`)
   if (args.videosPerSeed != null) argv.push(`--videos=${args.videosPerSeed}`)
   if (args.budget != null) argv.push(`--budget=${args.budget}`)
+  if (args.searchThinMarkets != null) argv.push(`--search=${args.searchThinMarkets}`)
 
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, argv, {
@@ -297,7 +314,14 @@ async function discoverCreators(args) {
       mentionsCompetitor: all.filter((r) => r.competitor).length,
       existingPartnersFound: all.filter((r) => r.known).map((r) => r.title),
     },
-    quota: { unitsUsed: pipeline.units, dailyFreeUnits: 10_000, cacheHits: pipeline.cacheHits },
+    quota: {
+      unitsUsedThisRun: pipeline.units,
+      coldRunCost: pipeline.coldUnits,
+      cacheHits: pipeline.cacheHits,
+      dailyFreeUnits: 10_000,
+      spentToday: readQuota().units,
+      remainingToday: Math.max(0, 10_000 - readQuota().units),
+    },
     stages: pipeline.stages,
     creators: rows,
     csv: resolve(ROOT, out, 'creators.csv'),

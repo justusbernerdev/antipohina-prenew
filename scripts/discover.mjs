@@ -123,6 +123,38 @@ let units = 0
 let cacheHits = 0
 let cacheExpired = 0
 
+// ---------- the daily quota, tracked across runs ----------
+//
+// --budget caps one run. It does not stop five runs in an afternoon from spending the whole day's
+// allowance, which is exactly what happened while this was being built: by mid-afternoon 7 900 of
+// 10 000 units were gone and one more parameter change would have locked the day out.
+//
+// YouTube resets the allowance at midnight Pacific, so the ledger is keyed on that day rather than
+// on the local one. It stores a date and a number: nothing from the API, nothing to expire.
+const DAILY_LIMIT = Number(arg('daily-limit', 10_000))
+const RESERVE = Number(arg('reserve', 500)) // left untouched so a demo re-run always works
+const LEDGER = new URL('../data/quota.json', import.meta.url)
+
+// Midnight Pacific is 08:00 UTC in winter and 07:00 in summer. Using 08:00 year-round makes the
+// ledger roll over slightly late in summer, which errs towards spending less rather than more.
+const quotaDay = () => new Date(Date.now() - 8 * 3600_000).toISOString().slice(0, 10)
+
+let spentToday = 0
+try {
+  if (existsSync(LEDGER)) {
+    const l = JSON.parse(readFileSync(LEDGER, 'utf8'))
+    if (l.day === quotaDay()) spentToday = l.units || 0
+  }
+} catch { /* a corrupt ledger must not stop a run; the worst case is it starts from zero */ }
+
+const remainingToday = () => DAILY_LIMIT - RESERVE - spentToday - units
+
+function saveQuota() {
+  try {
+    writeFileSync(LEDGER, JSON.stringify({ day: quotaDay(), units: spentToday + units }, null, 1))
+  } catch { /* not worth failing a completed run over */ }
+}
+
 // Stage-by-stage bookkeeping, so the view can show what the engine did rather than only
 // what it produced. Written to out/pipeline.json.
 const stages = []
@@ -148,6 +180,13 @@ async function api(endpoint, params) {
     cacheExpired++
   }
   if (units >= BUDGET) throw new Error(`Quota budget ${BUDGET} exhausted`)
+  const cost = endpoint === 'search' ? 100 : 1
+  if (remainingToday() < cost) {
+    throw new Error(
+      `Päivän kiintiö lopussa: ${spentToday + units} / ${DAILY_LIMIT} käytetty, ${RESERVE} jätetty varalle. ` +
+        `Nollautuu keskiyöllä Tyynenmeren aikaa. Nosta rajaa --daily-limit tai aja välimuistista.`,
+    )
+  }
 
   const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
@@ -439,6 +478,7 @@ console.log(`Markets: ${MARKETS.join(',')} | seeds/market: ${SEEDS_PER_MARKET} |
 if (WANT.length) console.log(`Niche:   ${WANT.join(', ')}`)
 if (SEGMENT !== 'any') console.log(`Segmentti: ${SEGMENT === 'parents' ? 'vanhemmat ostajana' : 'aikuinen ostaa itselleen'}`)
 console.log(`Koodin tuotto: ${B.sales.basis}`)
+console.log(`Kiintiötä käytetty tänään: ${spentToday} / ${DAILY_LIMIT} (${RESERVE} varalla), jäljellä ${Math.max(0, remainingToday())}`)
 console.log(`Rajat laskettu heidän datastaan (${B.counts.collaborations} yhteistyötä, ${B.counts.rejections} hylkäystä${B.counts.recorded ? `, ${B.counts.recorded} kirjattua lopputulosta` : ''}):`)
 console.log(`  yläraja ${TAKEN_ZONE.toLocaleString('fi-FI')} — ${B.basis.takenZone}`)
 console.log(`  osuma-alue mediaani ${B.realisedMedian?.toLocaleString('fi-FI')} — ${B.basis.realisedMedian}\n`)
@@ -605,13 +645,19 @@ if (SEARCH_PER_MARKET > 0) {
     for (const q of queries) {
       if (units >= BUDGET - 300) break
       try {
+        // A cached search costs nothing, so the surcharge only applies to a call that really went
+        // out. Counting it unconditionally made a fully cached re-run report 1 500 units it never
+        // spent, which is the kind of number that ends up in a customer document.
+        const before = cacheHits
         const r = await api('search', {
           part: 'snippet', type: 'channel', q, regionCode: market,
           relevanceLanguage: MARKET_LANG[market] || '', maxResults: 50,
         })
-        // search costs 100 units, not the 1 the counter assumed
-        units += 99
-        searchUnits += 100
+        if (cacheHits === before) {
+          // search costs 100 units where the counter assumed 1
+          units += 99
+          searchUnits += 100
+        }
         for (const it of r.items || []) {
           const id = it.snippet?.channelId || it.id?.channelId
           if (id && !discovered.has(id)) ids.add(id)
@@ -1430,7 +1476,9 @@ const byNiche = {}
 for (const r of results) byNiche[r.nicheLabel] = (byNiche[r.nicheLabel] || 0) + 1
 console.log(`Nichet: ${Object.entries(byNiche).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' | ')}`)
 if (WANT.length) console.log(`Pyydetty niche: ${WANT.join(', ')} — ${offNiche} muuta tekijää pudotettu tiedostosta`)
+saveQuota()
 console.log(`Kiintiö: ${units} yksikköä käytetty, ${cacheHits} osumaa välimuistista${cacheExpired ? `, ${cacheExpired} vanhentunutta (yli 30 pv, haettu uudelleen)` : ''}`)
+console.log(`  tänään yhteensä: ${spentToday + units} / ${DAILY_LIMIT}, jäljellä ${Math.max(0, remainingToday())}`)
 console.log(`  koko ajo kylmänä: ${units + cacheHits} / 10 000 yksikköä päivässä (${Math.round(((units + cacheHits) / 10_000) * 100)} %), uusinta ${units}`)
 console.log(`\nKirjoitettu: ${OUT}/creators.csv ja ${OUT}/creators.json`)
 

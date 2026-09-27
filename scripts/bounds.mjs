@@ -114,7 +114,22 @@ export function bounds() {
   // Above this size a creator is usually already signed or priced as exclusive. The bound is the
   // smallest creator that was actually lost for that reason: everyone at or above it was lost too.
   const takenGroup = rejections.filter((r) => /competitor|exclusiv/i.test(r.reason || '') && r.subs)
-  const takenZone = takenGroup.length ? Math.min(...takenGroup.map((r) => r.subs)) : 110_000
+  const takenSubs = takenGroup.map((r) => r.subs).sort((a, b) => a - b)
+  const takenZone = takenSubs.length ? takenSubs[0] : 110_000
+
+  // The rule is defensible — everyone at or above this size was lost for this reason — but it rests
+  // on a single smallest observation, so one outlier can collapse it. Measured while testing: a
+  // single recorded rejection at 13 600 moved the bound from 110 000 to 13 600 and took a fifth of
+  // the list with it.
+  //
+  // The number is not smoothed, because smoothing their data without saying so is worse than a
+  // fragile number. Instead the engine reports when one row is doing all the work.
+  const takenGap = takenSubs.length > 1 ? takenSubs[1] / takenSubs[0] : 1
+  const takenFragile = takenSubs.length > 1 && takenGap >= 3
+  const takenNote = takenFragile
+    ? `Raja lepää yhden havainnon varassa: seuraavaksi pienin on ${takenSubs[1].toLocaleString('fi-FI')}, ` +
+      `eli ${Math.round(takenGap)} kertaa suurempi. Yksi lisähavainto tältä väliltä vakauttaisi sen.`
+    : null
 
   // ---- the price bound ----
   // A big TikTok next to a modest YouTube priced them out. Computable from their data, but dormant
@@ -287,6 +302,9 @@ export function bounds() {
 
   return {
     takenZone,
+    takenZoneFragile: takenFragile,
+    takenZoneNote: takenNote,
+    takenZoneObservations: takenSubs,
     priceyTiktok,
     realisedMedian: median(realisedSubs),
     sales,
@@ -303,9 +321,10 @@ export function bounds() {
     },
     // Why each bound is where it is, in the words the UI and the MCP tool both show.
     basis: {
-      takenZone: takenGroup.length
-        ? `${takenGroup.length} hylkäystä syystä kilpailija tai eksklusiivisuus, pienin niistä ${takenZone.toLocaleString('fi-FI')} tilaajaa`
-        : 'ei hylkäysdataa, oletus 110 000',
+      takenZone:
+        (takenGroup.length
+          ? `${takenGroup.length} hylkäystä syystä kilpailija tai eksklusiivisuus, pienin niistä ${takenZone.toLocaleString('fi-FI')} tilaajaa`
+          : 'ei hylkäysdataa, oletus 110 000') + (takenNote ? ` — ${takenNote}` : ''),
       priceyTiktok: priceGroup.length
         ? `${priceGroup.length} hylkäystä hintasyystä, pienin TikTok-seuraajamäärä ${priceyTiktok.toLocaleString('fi-FI')}`
         : 'ei hintadataa, oletus 80 000',
