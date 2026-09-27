@@ -35,18 +35,18 @@ export function AuthSplit({
       </div>
 
       {/* ---------- what is behind it ---------- */}
-      <aside className="order-2 flex flex-col justify-center border-t border-forest-40 bg-forest-10 px-5 py-12 lg:order-1 lg:border-t-0 lg:border-r sm:px-8 lg:px-12">
+      <aside className="deep order-2 flex flex-col justify-center px-5 py-12 lg:order-1 sm:px-8 lg:px-12">
         <div className="mx-auto w-full max-w-md">
-          <p className="text-xs font-semibold tracking-wider text-forest uppercase">
+          <p className="text-xs font-semibold tracking-wider text-mint uppercase">
             Prenew challenge · tiimi antipöhinä
           </p>
 
           <h2 className="mt-4 font-display text-3xl leading-[1.05] font-extrabold tracking-tight">
             Pienet tekijät löytyvät{' '}
-            <span className="text-forest">isojen vierestä</span>, eivät hakemalla.
+            <span className="text-mint">isojen vierestä</span>, eivät hakemalla.
           </h2>
 
-          <p className="mt-4 text-sm leading-relaxed text-ink-2">
+          <p className="mt-4 text-sm leading-relaxed text-white/75">
             Engine joka etsii pelitekijöitä sieltä mistä vaikuttaja-alustat eivät niitä löydä:
             kansallisen pelilistan tekijöiden kommentoijista. Jokaisella rivillä on perustelu miksi
             se on siellä.
@@ -67,7 +67,7 @@ export function AuthSplit({
             />
           </dl>
 
-          <p className="mt-8 border-t border-forest-40 pt-4 text-xs leading-relaxed text-ink-2">
+          <p className="mt-8 border-t border-white/20 pt-4 text-xs leading-relaxed text-white/65">
             Näkymässä on Prenewin omaa CRM-aineistoa — kuka hylättiin ja miksi, agentuuriosuus
             markkinoittain — joten se ei ole julkinen. Siksi tunnus.
           </p>
@@ -80,9 +80,9 @@ export function AuthSplit({
 function Stat({ k, v, note }: { k: string; v: string; note: string }) {
   return (
     <div>
-      <dt className="text-[10px] tracking-wide text-ink-3 uppercase">{k}</dt>
-      <dd className="font-display text-2xl font-extrabold tracking-tight text-forest">{v}</dd>
-      <dd className="mt-0.5 text-[11px] leading-snug text-ink-3">{note}</dd>
+      <dt className="text-[10px] tracking-wide text-white/55 uppercase">{k}</dt>
+      <dd className="font-display text-3xl font-extrabold tracking-tight text-mint">{v}</dd>
+      <dd className="mt-0.5 text-[11px] leading-snug text-white/60">{note}</dd>
     </div>
   )
 }

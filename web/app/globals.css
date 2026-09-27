@@ -1,24 +1,44 @@
 @import "tailwindcss";
 
-/* Prenew's own brand, read out of prenew.com/fi-FI on 26.9.2026. These are their CSS values,
-   not an interpretation of them: forest green is the brand colour, electric blue carries actions,
-   and the surface is light because their site is light. */
+/* Prenew's own brand, read out of the stylesheets on prenew.com/fi-FI on 27.9.2026. These are
+   their variable names and values, not an interpretation of them.
+
+   The first version of this file got the palette right and the composition wrong. Their site is not
+   a light page with green text: it is deep green blocks carrying white text, with mint green
+   buttons on top, laid over an almost-white page. The mint and the gradient stops were the two
+   things missing, and they are the two things that make it look like them. */
 @theme {
-  --color-surface: #f8f8ff; /* almost-gray, their page background */
+  --color-surface: #f8f8ff; /* their --color-almost-gray */
   --color-surface-2: #ffffff;
   --color-surface-3: #f1f1f8;
   --color-line: #e2e2ee;
   --color-line-strong: #c9c9da;
 
-  --color-ink: #1d1d35; /* ink-dark */
-  --color-ink-2: #565668;
-  --color-ink-3: #777786; /* ink-muted */
+  /* they call this midnight-black, with their own tints */
+  --color-ink: #1d1d35;
+  --color-ink-2: #4a4a5d;
+  --color-ink-3: #777786;
+  --color-ink-4: #a5a5ae;
 
-  --color-forest: #256f50; /* the brand colour */
+  --color-forest: #256f50; /* --color-forest-green */
   --color-forest-80: #518c73;
   --color-forest-60: #7ca996;
   --color-forest-40: #a8c5b9;
   --color-forest-10: #eaf2ee;
+
+  /* --color-mint-green and its tints. This is what their buttons are, and the text on it is
+     midnight-black rather than white: mint is a light colour and white on it does not hold. */
+  --color-mint: #9df69a;
+  --color-mint-80: #b1f8ae;
+  --color-mint-60: #c4fac2;
+  --color-mint-40: #d8fbd7;
+  --color-mint-20: #ebfdeb;
+
+  /* The gradient stops behind their hero, from their own --c-0 and --c-1 pairs. */
+  --color-deep: #0b3c25;
+  --color-deep-2: #245c42;
+  --color-deep-3: #09714b;
+  --color-deep-4: #239563;
 
   --color-blue: #0a74ff; /* actions */
   --color-blue-80: #3b90ff;
@@ -31,7 +51,8 @@
   --color-critical-10: #fdeceb;
 
   /* Categorical: discovery route. Two series, fixed order, never cycled. Forest green is the
-     commenter route because that route is the answer to their problem. */
+     commenter route because that route is the answer to their problem. Mint is never used as a
+     series colour: it is reserved for the thing you are meant to click. */
   --color-route-comment: #256f50;
   --color-route-chart: #0a74ff;
 
@@ -39,7 +60,8 @@
   --font-body: var(--font-titillium), ui-sans-serif, system-ui, sans-serif;
 
   --radius-brand: 0.25rem;
-  --radius-brand-lg: 0.75rem;
+  --radius-brand-md: 10px; /* their --adyen-sdk-border-radius, used on real components */
+  --radius-brand-lg: 1rem; /* their --radius-2xl */
 }
 
 html {
@@ -82,8 +104,15 @@ body {
 }
 
 ::selection {
-  background: var(--color-forest-40);
+  background: var(--color-mint);
   color: var(--color-ink);
+}
+
+/* The deep green block their hero is built from. Used for the page header and the auth panel, so
+   the two read as the same family rather than as two different products. */
+.deep {
+  background: linear-gradient(135deg, var(--color-deep) 0%, var(--color-deep-2) 58%, var(--color-deep-3) 100%);
+  color: #fff;
 }
 
 /* Focus that is visible on a light surface without being decorative. */

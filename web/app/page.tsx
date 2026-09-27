@@ -14,24 +14,25 @@ export default function Page() {
   const quota = d.quotaUnits ?? 0
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-16">
-      {/* ---------- hero ---------- */}
-      <header className="rise">
-        <p className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tracking-wider text-ink-3 uppercase">
+    <main>
+      {/* ---------- hero: a deep green block, the way their own site opens ---------- */}
+      <header className="deep rise px-5 py-14 sm:px-8 sm:py-20">
+       <div className="mx-auto max-w-6xl">
+        <p className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tracking-wider text-mint uppercase">
           <span>Prenew challenge</span>
-          <span className="text-line-strong">/</span>
+          <span className="text-white/35">/</span>
           <span>tiimi antipöhinä</span>
-          <span className="text-line-strong">/</span>
+          <span className="text-white/35">/</span>
           <span>{d.runDate}</span>
         </p>
 
         <h1 className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-6xl">
           Pienet tekijät löytyvät
           <br />
-          <span className="text-forest">isojen vierestä</span>, eivät hakemalla.
+          <span className="text-mint">isojen vierestä</span>, eivät hakemalla.
         </h1>
 
-        <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-2">
+        <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/75">
           Haku on YouTuben kiintiössä sata kertaa kalliimpaa kuin tunnisteella tehty erähaku. Siksi
           tämä ei etsi hakusanoilla vaan laajentaa verkostosta: kansallinen pelilista antaa
           keskikokoiset paikalliset tekijät, ja heidän videoidensa kommentoijat antavat sen hännän
@@ -40,11 +41,11 @@ export default function Page() {
 
         {/* The one thing that has to be clear before anything else: this is an engine, and there
             are three ways to take it. Sanoitte ettette halua erillistä työkalua — tämä ei ole. */}
-        <div className="mt-8 rounded-brand-lg border border-forest bg-forest-10 p-5">
+        <div className="mt-8 rounded-brand-lg border border-white/20 bg-white/8 p-5 backdrop-blur-sm">
           <p className="font-display text-base font-bold">
-            Tämä on <span className="text-forest">engine</span>, ei sovellus johon kirjaudutaan.
+            Tämä on <span className="text-mint">engine</span>, ei sovellus johon kirjaudutaan.
           </p>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-2">
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/75">
             Sanoitte ettette halua erillistä työkalua eikä uutta työnkulkua. Tämä ei ole
             kumpaakaan. Se on moottori jossa on tieto-taito, ja te kytkette sen siihen mitä teillä
             jo on — kolmella tavalla, ja valitsette itse.
@@ -67,7 +68,7 @@ export default function Page() {
               accent
             />
           </div>
-          <p className="mt-4 border-t border-forest-40 pt-3 text-sm leading-relaxed">
+          <p className="mt-4 border-t border-white/20 pt-3 text-sm leading-relaxed text-white/85">
             Kolmas on valinnainen eikä kuulu haasteeseen. Mutta siitä seuraa yksi asia joka
             kannattaa sanoa ääneen:{' '}
             <strong className="font-semibold">
@@ -78,7 +79,7 @@ export default function Page() {
           </p>
         </div>
 
-        <dl className="nums mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-brand-lg border border-line bg-line sm:grid-cols-4">
+        <dl className="nums mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-brand-lg border border-white/15 bg-white/15 sm:grid-cols-4">
           <Tile k="tekijää" v={fmt(stats.fresh)} note="uusia löytöjä" />
           <Tile k="alle 50k tilaajaa" v={fmt(stats.small)} note={`${pct(stats.small, stats.fresh)} % listasta`} accent />
           <Tile
@@ -89,7 +90,10 @@ export default function Page() {
           />
           <Tile k="yhteystieto tiedossa" v={fmt(stats.withEmail)} note={`${stats.withBusinessEmail} business-osoitetta`} />
         </dl>
+       </div>
       </header>
+
+      <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
 
       {/* ---------- A. what the engine did ---------- */}
       <Section
@@ -576,6 +580,7 @@ export default function Page() {
           paikallisilla tekijöillä joita tämä on tarkoitettu löytämään.
         </p>
       </footer>
+      </div>
     </main>
   )
 }
@@ -612,16 +617,16 @@ function Tile({
   accent?: boolean
 }) {
   return (
-    <div className="bg-surface-2 p-4">
-      <dt className="text-[11px] tracking-wide text-ink-3 uppercase">{k}</dt>
+    <div className="deep p-4">
+      <dt className="text-[11px] tracking-wide text-white/55 uppercase">{k}</dt>
       <dd
         className={`mt-1 font-display text-3xl font-extrabold tracking-tight ${
-          accent ? 'text-forest' : 'text-ink'
+          accent ? 'text-mint' : 'text-white'
         }`}
       >
         {v}
       </dd>
-      <dd className="mt-0.5 text-[11px] text-ink-3">{note}</dd>
+      <dd className="mt-0.5 text-[11px] text-white/60">{note}</dd>
     </div>
   )
 }
@@ -680,10 +685,10 @@ function Route({
   accent?: boolean
 }) {
   return (
-    <div className={`rounded-brand border bg-surface-2 p-3 ${accent ? 'border-forest-60' : 'border-forest-40'}`}>
-      <p className="font-display text-xs font-extrabold text-forest">{n}</p>
-      <p className="font-display text-sm font-bold">{title}</p>
-      <p className="mt-1 text-xs leading-snug text-ink-2">{body}</p>
+    <div className={`rounded-brand-md border bg-white/8 p-3 ${accent ? 'border-mint/50' : 'border-white/20'}`}>
+      <p className="font-display text-xs font-extrabold text-mint">{n}</p>
+      <p className="font-display text-sm font-bold text-white">{title}</p>
+      <p className="mt-1 text-xs leading-snug text-white/70">{body}</p>
     </div>
   )
 }
