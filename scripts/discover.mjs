@@ -9,12 +9,25 @@
 //
 // Usage:
 //   node --env-file=.env scripts/discover.mjs
+//   node --env-file=.env scripts/discover.mjs --markets=DE --niche=minecraft,fortnite
 //   node --env-file=.env scripts/discover.mjs --markets=FI,EE --seeds=20 --budget=1500
+//
+// Options:
+//   --markets=DE,FI      market codes, default is their eleven
+//   --niche=minecraft    niche keys, comma separated, default is all gaming (list: --niche=?)
+//   --segment=parents    who buys: any (default), parents, adults
+//   --min-subs=4000      size window, defaults come from their own realised collaborations
+//   --max-subs=250000
+//   --seeds=12           expansion seeds per market
+//   --videos=4           videos per seed to harvest commenters from
+//   --budget=3000        hard quota ceiling for one run
+//   --out=out            output directory
 //
 // Every response is cached under cache/, so re-runs cost no quota.
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { bounds } from './bounds.mjs'
 
 const KEY = process.env.YT_API_KEY
 if (!KEY) { console.error('Missing YT_API_KEY. Put it in .env as YT_API_KEY=...'); process.exit(1) }
@@ -32,25 +45,48 @@ const VIDEOS_PER_SEED = Number(arg('videos', 4))    // videos to harvest comment
 const BUDGET = Number(arg('budget', 3000))          // hard quota ceiling for one run
 const OUT = arg('out', 'out')
 
-// Bounds derived from their own rejection data (data/not-realised.json), not from guesses:
-//   rejected as "competitor / exclusivity": YouTube median 479k, range 110k-629k
-//   rejected as "too expensive":            YouTube 33k-48k but TikTok 79k-340k
-//   rejected as "too small":                YouTube 7.7k
-//   realised collaborations:                YouTube median 75k
-// So the reachable window is narrow, and above ~110k a creator is usually already taken.
-const MIN_SUBS = 4000
-const MAX_SUBS = 250_000          // outer bound for reporting
-const TAKEN_ZONE = 110_000        // above this: already with a competitor, or exclusive
-const PRICEY_TIKTOK = 80_000      // big TikTok with modest YouTube priced them out
+// Which niches to ask for. Empty means "all gaming". Named niches do three things: they steer
+// which creators are used as expansion seeds, they boost the score, and they restrict the file.
+// Akseli asked for niche as an output field; asking for it as an input is the same taxonomy.
+const WANT = arg('niche', '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+
+// Who the machine is being sold to. Prenew's own categories say the buyer and the user are often
+// two different people: there is a Parents' Choice tier and a gaming-pc-for-kids page, so on those
+// products the channel reaches the child and the wallet belongs to the parent.
+//   any      score the creator, no audience lens        (default)
+//   parents  favour channels where the buyer is watching too
+//   adults   favour channels whose audience buys for itself
+const SEGMENT = arg('segment', 'any').toLowerCase()
+if (!['any', 'parents', 'adults'].includes(SEGMENT)) {
+  console.error(`Tuntematon segmentti: ${SEGMENT}. Käytä any, parents tai adults.`)
+  process.exit(1)
+}
+
+// Bounds are computed from their own outcome data, not written here. scripts/bounds.mjs reads
+// their collaboration export, their not-realised export and anything recorded since, and derives
+// the numbers. It reproduces the hand analysis exactly (taken zone 110k, realised median 75k),
+// which is why it is safe to let it move on its own when they record the next outcome.
+const B = bounds()
+const MIN_SUBS = Number(arg('min-subs', 4000))
+const MAX_SUBS = Number(arg('max-subs', 250_000))   // outer bound for reporting
+const TAKEN_ZONE = B.takenZone    // above this: already with a competitor, or exclusive
 const MIN_VIDEOS = 5
+
+// Videos read per channel to measure recent performance. playlistItems costs one unit for up to
+// 50 ids and videos.list one unit for up to 50 ids, so 20 costs exactly what 10 costs. More
+// videos means a usable trend (10 newer vs 10 older) and a far better niche reading.
+const SAMPLE = 20
 
 // ---------- quota-aware, cached API ----------
 
-mkdirSync('cache', { recursive: true })
+// A different cache directory is how a caller asks for a run that ignores previous responses.
+const CACHE = process.env.CACHE_DIR || 'cache'
+mkdirSync(CACHE, { recursive: true })
 mkdirSync(OUT, { recursive: true })
 
 let units = 0
 let cacheHits = 0
+let cacheExpired = 0
 
 // Stage-by-stage bookkeeping, so the view can show what the engine did rather than only
 // what it produced. Written to out/pipeline.json.
@@ -60,12 +96,21 @@ const stage = (name, count, note) => {
   return count
 }
 
+// YouTube's API Services Terms cap how long API data may be kept at 30 days. Channel and video
+// IDs are the exception and may be stored indefinitely, which is what data/seen.json relies on.
+// So the cache expires on purpose: a stale entry is not a saving, it is a violation.
+const CACHE_TTL_DAYS = 30
+
 async function api(endpoint, params) {
   const key = createHash('sha1').update(endpoint + JSON.stringify(params)).digest('hex')
-  const path = `cache/${endpoint}-${key}.json`
+  const path = `${CACHE}/${endpoint}-${key}.json`
   if (existsSync(path)) {
-    cacheHits++
-    return JSON.parse(readFileSync(path, 'utf8'))
+    const ageDays = (Date.now() - statSync(path).mtimeMs) / 86_400_000
+    if (ageDays <= CACHE_TTL_DAYS) {
+      cacheHits++
+      return JSON.parse(readFileSync(path, 'utf8'))
+    }
+    cacheExpired++
   }
   if (units >= BUDGET) throw new Error(`Quota budget ${BUDGET} exhausted`)
 
@@ -88,7 +133,10 @@ async function api(endpoint, params) {
 }
 
 // Batch id-based lookups 50 at a time: that is the whole reason this pipeline is cheap.
-async function channelsByIds(ids, part = 'snippet,statistics,contentDetails') {
+// channels.list costs one unit per call whatever parts are asked for, so brandingSettings
+// (the creator's own keywords) and topicDetails (YouTube's own topic classification) are free
+// niche signal and there is no reason not to take them.
+async function channelsByIds(ids, part = 'snippet,statistics,contentDetails,brandingSettings,topicDetails') {
   const out = []
   for (let i = 0; i < ids.length; i += 50) {
     const r = await api('channels', { part, id: ids.slice(i, i + 50).join(',') })
@@ -106,54 +154,191 @@ const FAN_CHANNEL = /(unofficial|nem hivatalos|rajongói|fan\s?(channel|page|edi
 
 const isSideChannel = (title, desc) => SIDE_CHANNEL.test(title) || FAN_CHANNEL.test(desc || '')
 
-// Games that imply a PC purchase decision, weighted from Prenew's own successful collaborations.
-const NICHE_WEIGHTS = [
-  [/minecraft/i, 1.0], [/fortnite/i, 1.0], [/\bark\b/i, 0.9], [/\bgta\b/i, 0.9],
-  [/\bcs2?\b|counter.?strike/i, 0.9], [/valorant/i, 0.9], [/roblox/i, 0.6],
-  [/tech|review|hardware|pc.?build|gaming gear/i, 1.0], [/simulator/i, 0.7],
-  [/clash royale|geometry dash|among us|mobile/i, 0.2],
+// Niche taxonomy. Akseli asked for "niche (tech review / gaming, what game)", so the niche is a
+// named thing that goes in the file, not only a hidden weight.
+//
+// `weight` is how strongly the niche implies a PC purchase decision, anchored in Prenew's own
+// realised collaborations: Minecraft 10 of 69, Tech 5, gaming news / tech 4, general games 4.
+// Mobile-first titles run on a phone, so they weigh least. Order matters: a specific game is
+// recognised before the generic category, and `kind` is the coarse answer, `label` the precise one.
+const NICHES = [
+  // hardware and buying decisions: the creator is already selling machines
+  { key: 'tech',        kind: 'tech review', label: 'Tech / hardware review', w: 1.0, re: /\b(tech review|hardware|pc.?build|rig build|benchmark|unboxing|näytönohjain|prosessori|komponent|gaming gear|peripherals?)\b/i },
+  // games where frame rate or load time is the reason to upgrade
+  { key: 'minecraft',   kind: 'peli', label: 'Minecraft',              w: 1.0, re: /\bminecraft\b|\bmc\s?(survival|smp|hardcore)\b/i },
+  { key: 'fortnite',    kind: 'peli', label: 'Fortnite',               w: 1.0, re: /\bfortnite\b|\bfn\s?(battle|zero)\b/i },
+  { key: 'cs',          kind: 'peli', label: 'CS2 / Counter-Strike',   w: 0.9, re: /\bcs\s?2\b|\bcsgo\b|counter.?strike/i },
+  { key: 'valorant',    kind: 'peli', label: 'Valorant',               w: 0.9, re: /\bvalorant\b/i },
+  { key: 'gta',         kind: 'peli', label: 'GTA',                    w: 0.9, re: /\bgta\s?(v|vi|5|6|rp|online)?\b|grand theft auto/i },
+  { key: 'ark',         kind: 'peli', label: 'ARK',                    w: 0.9, re: /\bark\b.{0,20}(survival|evolved|ascended)|\bark:?\s/i },
+  { key: 'tarkov',      kind: 'peli', label: 'Escape from Tarkov',     w: 0.9, re: /\btarkov\b/i },
+  { key: 'rust',        kind: 'peli', label: 'Rust',                   w: 0.9, re: /\brust\b.{0,20}(wipe|raid|base|solo)/i },
+  { key: 'cities',      kind: 'peli', label: 'Cities: Skylines',       w: 0.9, re: /cities.?skylines/i },
+  { key: 'simulator',   kind: 'peli', label: 'Simulaattorit',          w: 0.8, re: /\bsimulator\b|\bsim racing\b|\bets\s?2\b|farming simulator|flight sim/i },
+  { key: 'palworld',    kind: 'peli', label: 'Palworld',               w: 0.8, re: /\bpalworld\b/i },
+  { key: 'battlefield', kind: 'peli', label: 'Battlefield / CoD',      w: 0.8, re: /\bbattlefield\b|\bbf\s?(1|3|4|5|6|2042)\b|call of duty|\bcod\b.{0,12}(warzone|mw|bo\d)/i },
+  { key: 'apex',        kind: 'peli', label: 'Apex Legends',           w: 0.8, re: /apex legends/i },
+  { key: 'lol',         kind: 'peli', label: 'League of Legends',      w: 0.7, re: /league of legends|\blol\b.{0,15}(gameplay|ranked|patch)/i },
+  { key: 'souls',       kind: 'peli', label: 'Souls / Elden Ring',     w: 0.8, re: /dark souls|elden ring|\bsekiro\b|\bnioh\b/i },
+  { key: 'roblox',      kind: 'peli', label: 'Roblox',                 w: 0.6, re: /\broblox\b/i },
+  { key: 'sims',        kind: 'peli', label: 'The Sims',               w: 0.6, re: /\bthe sims\b|\bsims\s?4\b/i },
+  { key: 'terraria',    kind: 'peli', label: 'Terraria / Stardew',     w: 0.5, re: /\bterraria\b|stardew/i },
+  // mobile-first: runs on a phone, so it argues against a PC purchase
+  { key: 'mobile',      kind: 'peli', label: 'Mobiilipelit',           w: 0.2, re: /clash royale|clash of clans|brawl stars|geometry dash|among us|\bpubg mobile\b|\bmobile game/i },
+  // adjacent content: an audience exists but the product fit has to be argued
+  { key: 'esports',     kind: 'esports / news', label: 'Esports ja pelinews', w: 0.7, re: /\besports?\b|\be-?sports\b|gaming news|patch notes|\bturnaus\b|tournament/i },
+  { key: 'lifestyle',   kind: 'lifestyle',      label: 'Lifestyle / vlog',    w: 0.3, re: /\bvlog\b|lifestyle|\bdaily life\b|\bstoryti(me|mes)\b/i },
+  { key: 'comedy',      kind: 'comedy',         label: 'Komedia / sketsit',   w: 0.3, re: /\bcomedy\b|\bsketch\b|\bmeme\b|\bhumor\b|\bhuumori\b/i },
+  { key: 'music',       kind: 'music',          label: 'Musiikki',            w: 0.2, re: /\bmusic video\b|\bofficial audio\b|\bbeat\b|\bremix\b|\bcover song\b/i },
+  // generic fallback: it is gaming, we just cannot say which game
+  { key: 'gaming',      kind: 'gaming',         label: 'Pelisisältö, ei eritelty', w: 0.5, re: /\bgam(e|es|ing|eplay)\b|\bpelit?\b|\blet.?s play\b|\bspiel\b|\bgra\b|\bjáték\b/i },
 ]
 
-const nicheScore = (text) => {
-  for (const [re, w] of NICHE_WEIGHTS) if (re.test(text)) return w
-  return 0.5 // unknown gaming content
+const NICHE_KEYS = new Set(NICHES.map((n) => n.key))
+
+// Which audience a niche leans towards. YouTube exposes viewer demographics only to the channel's
+// own owner, so this is a lean read off the content and never a measurement of who is watching.
+// It matters because Prenew sells the same machine to two different people: the Parents' Choice
+// tier is bought by an adult for a child, and the RGB tier is bought by the player.
+const YOUNG_NICHES = new Set(['minecraft', 'roblox', 'fortnite', 'sims', 'terraria', 'mobile'])
+const ADULT_NICHES = new Set(['cs', 'valorant', 'gta', 'ark', 'tarkov', 'rust', 'battlefield', 'apex', 'souls', 'tech', 'esports', 'cities'])
+
+// The parent is present in the channel, not only the child. A creator who says "family friendly"
+// is telling you the wallet is watching.
+const FAMILY_SIGNAL = /family.?friendly|\bfamil(y|ie|ies)\b|\bfamili[ea]\b|\bfamille\b|koko perhe|perheen|lapsiperhe|hela familjen|ganze familie|hele familien|cała rodzina|az egész család/i
+
+if (WANT.includes('?')) {
+  console.log('Nichet joita voi pyytää --niche=<avain>,<avain>:\n')
+  for (const n of NICHES) console.log(`  ${n.key.padEnd(12)} ${n.label.padEnd(30)} ${n.kind}`)
+  process.exit(0)
+}
+const unknownNiche = WANT.filter((k) => !NICHE_KEYS.has(k))
+if (unknownNiche.length) {
+  console.error(`Tuntematon niche: ${unknownNiche.join(', ')}`)
+  console.error(`Käytettävissä: ${[...NICHE_KEYS].join(', ')}`)
+  console.error(`Koko lista selityksineen: --niche=?`)
+  process.exit(1)
+}
+
+// Returns every niche the text supports, most specific first. The first hit is the primary one,
+// because the list is ordered by how precisely it identifies the content.
+function classifyNiche(text) {
+  const hits = NICHES.filter((n) => n.re.test(text))
+  if (!hits.length) return { primary: null, kind: 'tuntematon', games: [], w: 0.5, keys: [] }
+  const games = hits.filter((n) => n.kind === 'peli').map((n) => n.label)
+  return {
+    primary: hits[0],
+    kind: hits[0].kind,
+    games,
+    // The weight of the most product-relevant match, not of the first: a Minecraft channel that
+    // also reviews hardware should not be penalised for mentioning a mobile game once.
+    w: Math.max(...hits.map((n) => n.w)),
+    keys: hits.map((n) => n.key),
+  }
 }
 
 // Self-declared youth signals. Never a filter, always a flag: the decision stays with a human.
-const YOUTH_HINT = /\b(young|kid|kids|child|minor|13|14|15)\b|nuori|lapsi/i
+//
+// Bare ages used to be in here and they were almost all false positives once the sample grew to
+// twenty videos per channel: "Na 14 Afleveringen", "14.000 Robux", "Jour 14", "August 13". An age
+// now only counts with a qualifier around it. Prenew sells a Parents' Choice category and a
+// gaming-pc-for-kids page, so this flag has to be trustworthy rather than merely present.
+const YOUTH_HINT = new RegExp(
+  [
+    // English
+    String.raw`\bfor kids\b`, String.raw`\bkids?['’]?s? (channel|content|gaming|friendly)\b`,
+    String.raw`\bfamily.?friendly\b`, String.raw`\bmade for kids\b`, String.raw`\bchild(ren)?['’]?s\b`,
+    String.raw`\bkid.?friendly\b`, String.raw`\byoung (audience|viewers|fans)\b`,
+    // An age, but only with a qualifier and only inside a plausible range. "Over 9000" and
+    // "age 1" both slipped through a looser version of this.
+    String.raw`\b(under|ages?|aged|age)\s?:?\s?(?:[3-9]|1[0-7])\b(?!\d)`,
+    String.raw`\b(?:[3-9]|1[0-7])\s?\+\s?(vuot|year|jahr|ans|år|lat|év)`,
+    String.raw`\b(alle|yli)\s(?:[3-9]|1[0-7])\s?(-?vuotia|v\.)`,
+    // their markets
+    String.raw`\blapsille\b`, String.raw`\bnuorille\b`, String.raw`\blapsiperhe`,   // fi
+    String.raw`\bför barn\b`, String.raw`\bbarnvänlig`,                              // sv
+    String.raw`\btil børn\b`,                                                        // da
+    String.raw`\bfür kinder\b`, String.raw`\bkinderfreundlich`,                      // de
+    String.raw`\bvoor kinderen\b`, String.raw`\bkindvriendelijk`,                    // nl
+    String.raw`\bpour (les )?enfants\b`,                                             // fr
+    String.raw`\bdla dzieci\b`,                                                      // pl
+    String.raw`\bgyerekeknek\b`, String.raw`\bgyerek csatorna\b`,                    // hu
+    String.raw`\blastele\b`,                                                         // et
+    String.raw`\bbērniem\b`, String.raw`\bvaikams\b`,                                // lv, lt
+  ].join('|'),
+  'i',
+)
 
 // The strongest Prenew-specific signal, found by reading their own partners' channels:
 // creators who list their rig in the channel description already sell PCs for free, because
 // their audience asks about it. No influencer platform detects this.
 const RIG_TALK = /(rtx\s?\d{4}|gtx\s?\d{3,4}|ryzen|core\s?i[3579]|radeon|geforce|näytönohjain|prosessori|prossu|specs?|speksit|kokoonpano|setup|rechner|dator|gépem|komputer)/i
 
-// Their own existing partners, read from the collaboration data. The engine should find these
-// (it does, which validates the model) but they must not be presented as new discoveries.
-const KNOWN = new Set()
-try {
-  const collabs = JSON.parse(readFileSync(new URL('../data/collaborations.json', import.meta.url), 'utf8'))
-  for (const c of collabs) {
-    for (const field of ['Creator key', 'Creator / channel']) {
-      const v = c[field]
-      if (v) KNOWN.add(String(v).toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim())
+// ---------- cross-platform handles, read out of the channel description ----------
+//
+// YouTube and TikTok are what they asked for; IG, FB and Twitch they called a plus. All of them
+// are free here, because a creator who is on several platforms links them in their own description.
+// The narrow /tiktok\.com\/@/ pattern this replaces found 13 creators out of 473: most creators
+// write "TikTok: @name" rather than pasting a URL.
+
+const HANDLE = String.raw`[\w][\w.]{1,29}`
+
+const SOCIAL_PATTERNS = {
+  tiktok: [
+    new RegExp(String.raw`tiktok\.com/@(${HANDLE})`, 'i'),
+    new RegExp(String.raw`tiktok\b[\s:\-–—>|]*@?(${HANDLE})`, 'i'),
+  ],
+  instagram: [
+    new RegExp(String.raw`instagram\.com/(${HANDLE})`, 'i'),
+    new RegExp(String.raw`\b(?:instagram|insta|ig)\b[\s:\-–—>|]*@(${HANDLE})`, 'i'),
+  ],
+  twitch: [
+    new RegExp(String.raw`twitch\.tv/(${HANDLE})`, 'i'),
+    new RegExp(String.raw`\btwitch\b[\s:\-–—>|]*@?(${HANDLE})`, 'i'),
+  ],
+  facebook: [new RegExp(String.raw`(?:facebook|fb)\.com/(${HANDLE})`, 'i')],
+  twitter: [new RegExp(String.raw`(?:twitter|x)\.com/(${HANDLE})`, 'i')],
+  discord: [new RegExp(String.raw`discord\.(?:gg|com/invite)/(\w{4,20})`, 'i')],
+}
+
+// Words that look like a handle but are not one: they show up when a description says
+// "follow me on TikTok too" or links a share URL rather than a profile.
+const NOT_A_HANDLE = /^(com|www|http|https|and|also|too|my|me|here|link|links|share|intent|home|profile|page|channel|user|video|myös|minun|tili|seuraa|folge|obserwuj|kövess|follow|subscribe|channels|watch|reel|reels|p|explore)$/i
+
+function socials(desc) {
+  const found = {}
+  for (const [platform, patterns] of Object.entries(SOCIAL_PATTERNS)) {
+    for (const re of patterns) {
+      const h = re.exec(desc)?.[1]
+      if (h && !NOT_A_HANDLE.test(h)) { found[platform] = h.replace(/[.]+$/, ''); break }
     }
   }
-} catch { /* data file optional */ }
+  // A short-link proves presence even when the handle is not readable from it.
+  if (!found.tiktok && /vm\.tiktok\.com|tiktok\.com\/t\//i.test(desc)) found.tiktok = '(linkki)'
+  return found
+}
 
-const isKnown = (title) => KNOWN.has(String(title).toLowerCase().trim())
+// All addresses, then the one that reads like a business contact. Creators who keep a separate
+// business address are the ones who answer, and it is the address their agency reads.
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]{2,}/g
+const BUSINESS_EMAIL = /(business|bookings?|contact|kontakt|info|yhteisty|sponsor|collab|media|mgmt|management|partner|zakelnicz|wspolprac|együttműködés|samarbete|reklam)/i
+
+function emails(desc) {
+  const all = [...new Set((desc.match(EMAIL_RE) || []).map((e) => e.replace(/[.,;]+$/, '')))]
+  const business = all.find((e) => BUSINESS_EMAIL.test(e)) || null
+  return { all, primary: business || all[0] || null, business }
+}
+
+// Their own existing partners, read from the collaboration data. The engine should find these
+// (it does, which validates the model) but they must not be presented as new discoveries.
+const norm = (s) => String(s || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim()
+
+const isKnown = (title) => B.knownSet.has(norm(title))
 
 // Creators they already approached and rejected, with the reason. Without this the engine
-// happily promotes someone they turned down: Lewa scored 100 before this was added.
-const REJECTED = new Map()
-try {
-  const nr = JSON.parse(readFileSync(new URL('../data/not-realised.json', import.meta.url), 'utf8'))
-  for (const r of nr) {
-    const name = String(r.Creator || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim()
-    if (name) REJECTED.set(name, { reason: r['Reason category'], note: r['Reason (CRM notes)'], later: r['Later outcome'] })
-  }
-} catch { /* data file optional */ }
-
-const rejectedAs = (title) => REJECTED.get(String(title).toLowerCase().trim()) || null
+// happily promotes someone they turned down: Lewa scored 100 before this was added. The map
+// includes anything recorded through record_outcome since the last run.
+const rejectedAs = (title) => B.rejectedMap.get(norm(title)) || null
 
 // Organisations and teams are not creators: "Big clan" was rejected as "not a creator".
 const ORGANISATION = /\b(clan|esports?|e-sports?|team|org|organisation|organization|academy|gaming house)\b/i
@@ -161,7 +346,16 @@ const ORGANISATION = /\b(clan|esports?|e-sports?|team|org|organisation|organizat
 // Competitor signals in the description. A creator who already promotes another PC shop is
 // either exclusive or expensive: 5 of 26 rejections were "competitor / exclusivity", the
 // single largest reason. These are the PC and refurb retailers in their markets.
-const COMPETITOR = /\b(dubaro|one\.de|alternate|mindfactory|memorypc|memory pc|csl.?computer|jimm'?s|verkkokauppa|gigantti|power\.fi|inet\.se|webhallen|komplett|proshop|elgiganten|back ?market|refurbed|mediamarkt|saturn|nbb|notebooksbilliger|caseking|corsair|nzxt|hyperx)\b/i
+// A competitor is someone who sells the same thing: a whole machine. Component and peripheral
+// brands are a different case and used to be lumped in here, which flagged MrRockis — one of
+// Prenew's own partners — as promoting a competitor. Corsair sells a keyboard, not a refurbished PC,
+// so a creator who works with them is not unavailable. If anything they have already shown they do
+// hardware deals and know how they work.
+const COMPETITOR = /\b(dubaro|one\.de|alternate|mindfactory|memorypc|memory pc|csl.?computer|jimm'?s|verkkokauppa|gigantti|power\.fi|inet\.se|webhallen|komplett|proshop|elgiganten|back ?market|refurbed|mediamarkt|saturn|notebooksbilliger|nbb|caseking|megekko|azerty|coolblue|morele|x-?kom|komputronik|alza|ldlc|materiel\.net|topachat|cybertek|pccomponentes)\b/i
+
+// Component and peripheral brands. Adjacent rather than competing, and reported separately so the
+// distinction is visible instead of buried in one penalty.
+const HARDWARE_SPONSOR = /\b(corsair|nzxt|hyperx|razer|logitech|steelseries|asus|rog\b|msi|gigabyte|be quiet|noctua|cooler master|thermaltake|kingston|crucial|seagate|western digital|\bwd\b|lian li|endgame gear|glorious|turtle beach)\b/i
 
 // ---------- 1. seeds: per-country gaming charts ----------
 
@@ -180,7 +374,13 @@ function note(id, via, market, lang) {
   return d
 }
 
-console.log(`Markets: ${MARKETS.join(',')} | seeds/market: ${SEEDS_PER_MARKET} | budget: ${BUDGET} units\n`)
+console.log(`Markets: ${MARKETS.join(',')} | seeds/market: ${SEEDS_PER_MARKET} | budget: ${BUDGET} units`)
+if (WANT.length) console.log(`Niche:   ${WANT.join(', ')}`)
+if (SEGMENT !== 'any') console.log(`Segmentti: ${SEGMENT === 'parents' ? 'vanhemmat ostajana' : 'aikuinen ostaa itselleen'}`)
+console.log(`Koodin tuotto: ${B.sales.confidence}${B.sales.active ? ` — paras kokoluokka ${B.sales.bestBand}` : ''}`)
+console.log(`Rajat laskettu heidän datastaan (${B.counts.collaborations} yhteistyötä, ${B.counts.rejections} hylkäystä${B.counts.recorded ? `, ${B.counts.recorded} kirjattua lopputulosta` : ''}):`)
+console.log(`  yläraja ${TAKEN_ZONE.toLocaleString('fi-FI')} — ${B.basis.takenZone}`)
+console.log(`  osuma-alue mediaani ${B.realisedMedian?.toLocaleString('fi-FI')} — ${B.basis.realisedMedian}\n`)
 
 for (const market of MARKETS) {
   try {
@@ -211,28 +411,58 @@ const candidates = new Map() // channelId -> record
 function record(c, via, meta) {
   const s = c.statistics
   const desc = (c.snippet.description || '').replace(/\s+/g, ' ').trim()
+  const keywords = (c.brandingSettings?.channel?.keywords || '').replace(/"/g, ' ')
+  // YouTube's own classification, e.g. .../wiki/Action_game. Structured, and free with the call.
+  const topics = (c.topicDetails?.topicCategories || [])
+    .map((u) => decodeURIComponent(u.split('/').pop() || '').replace(/_/g, ' '))
+  const soc = socials(desc)
+  const mail = emails(desc)
+  const ageDays = c.snippet.publishedAt
+    ? Math.round((Date.now() - Date.parse(c.snippet.publishedAt)) / 86_400_000)
+    : null
+
   return {
     id: c.id,
     title: c.snippet.title,
-    url: `https://www.youtube.com/channel/${c.id}`,
+    // The @handle is what a human recognises the creator by, and it is what their outreach
+    // automation needs in order to find the same person on another platform.
+    handle: c.snippet.customUrl || null,
+    url: c.snippet.customUrl
+      ? `https://www.youtube.com/${c.snippet.customUrl}`
+      : `https://www.youtube.com/channel/${c.id}`,
+    thumb: c.snippet.thumbnails?.medium?.url || c.snippet.thumbnails?.default?.url || null,
     via,
     subs: Number(s.subscriberCount || 0),
     videos: Number(s.videoCount || 0),
     totalViews: Number(s.viewCount || 0),
     channelCountry: c.snippet.country || null,
+    channelLang: c.snippet.defaultLanguage || null,
+    channelAgeDays: ageDays,
     markets: [...(meta?.markets || [])],
     langs: [...(meta?.langs || [])],
     desc,
+    keywords,
+    topics,
     uploads: c.contentDetails?.relatedPlaylists?.uploads || null,
-    tiktok: /tiktok\.com\/@([\w.]+)/i.exec(desc)?.[1] || null,
-    email: /[\w.+-]+@[\w-]+\.[\w.]{2,}/.exec(desc)?.[0] || null,
+    tiktok: soc.tiktok || null,
+    instagram: soc.instagram || null,
+    twitch: soc.twitch || null,
+    facebook: soc.facebook || null,
+    twitter: soc.twitter || null,
+    discord: soc.discord || null,
+    platforms: ['youtube', ...Object.keys(soc)],
+    email: mail.primary,
+    emailBusiness: mail.business,
+    emailsAll: mail.all,
     sideChannel: isSideChannel(c.snippet.title, desc),
     youthHint: YOUTH_HINT.test(desc),
-    rigTalk: RIG_TALK.test(desc),
+    familySignal: FAMILY_SIGNAL.test(`${desc} ${keywords}`),
+    rigTalk: RIG_TALK.test(`${desc} ${keywords}`),
     known: isKnown(c.snippet.title),
     rejected: rejectedAs(c.snippet.title),
     organisation: ORGANISATION.test(c.snippet.title),
-    competitor: COMPETITOR.exec(desc)?.[0] || null,
+    competitor: COMPETITOR.exec(`${desc} ${keywords}`)?.[0] || null,
+    hardwareSponsor: HARDWARE_SPONSOR.exec(`${desc} ${keywords}`)?.[0] || null,
   }
 }
 
@@ -240,18 +470,47 @@ for (const c of chartChannels) {
   candidates.set(c.id, record(c, 'chart', discovered.get(c.id)))
 }
 
+// Everything the engine knows about what a channel is about. Cheap fields first, then the video
+// titles and tags that only exist after stage 5.
+const nicheBasis = (r) =>
+  `${r.title} ${r.desc} ${r.keywords || ''} ${(r.topics || []).join(' ')} ${r.nicheText || ''}`
+
+const matchesWant = (r) =>
+  !WANT.length || classifyNiche(nicheBasis(r)).keys.some((k) => WANT.includes(k))
+
 // Expand from real creators in range, not from side channels.
+//
+// When a niche is requested, expand from creators who are in that niche: the commenters under a
+// Minecraft video are Minecraft creators. This is where targeting actually happens, and it is why
+// --niche is an input and not only a filter on the way out.
+// A seed is a place to look, not a creator to partner with, so the size window does not apply to
+// it. Mid-size local creators come first because their commenters are the most local, but a large
+// channel in the requested niche is the richest commenter source there is and it is used as filler
+// when the chart does not hold enough mid-size ones. Asking for one market and one niche used to
+// leave four seeds; this is what makes narrow targeting actually reach the tail.
 const seeds = []
+let seedFallbacks = []
 for (const market of MARKETS) {
-  const inMarket = [...candidates.values()]
+  const pool = [...candidates.values()]
     .filter((r) => r.markets.includes(market) && !r.sideChannel && r.videos >= MIN_VIDEOS)
-    .filter((r) => r.subs >= MIN_SUBS && r.subs <= MAX_SUBS)
-    .sort((a, b) => a.subs - b.subs) // smallest first: their commenters are the most local
-    .slice(0, SEEDS_PER_MARKET)
-  seeds.push(...inMarket)
+    .filter((r) => r.subs >= MIN_SUBS)
+  const onNiche = pool.filter(matchesWant)
+  // A small market may have nobody on the chart in the requested niche. Expanding from its other
+  // gaming creators still finds local people, so the market is kept and the compromise is logged.
+  const use = onNiche.length ? onNiche : pool
+  if (WANT.length && !onNiche.length && pool.length) seedFallbacks.push(market)
+
+  const midSize = use.filter((r) => r.subs <= MAX_SUBS).sort((a, b) => a.subs - b.subs)
+  const large = use.filter((r) => r.subs > MAX_SUBS).sort((a, b) => b.subs - a.subs)
+  seeds.push(...[...midSize, ...large].slice(0, SEEDS_PER_MARKET))
 }
-stage('Siemeniä laajennukseen', seeds.length, 'oikeita tekijöitä haarukassa, pienimmät ensin')
-console.log(`Expansion seeds: ${seeds.length}`)
+stage('Siemeniä laajennukseen', seeds.length,
+  WANT.length ? `haarukassa ja pyydetyssä nichessä (${WANT.join(', ')}), pienimmät ensin`
+              : 'oikeita tekijöitä haarukassa, pienimmät ensin')
+console.log(`Expansion seeds: ${seeds.length}${WANT.length ? ` (niche: ${WANT.join(',')})` : ''}`)
+if (seedFallbacks.length) {
+  console.log(`  ei nichen mukaista siementä listalla: ${seedFallbacks.join(', ')} — laajennettu muista pelitekijöistä`)
+}
 
 // ---------- 3. expansion: commenters ----------
 
@@ -306,33 +565,93 @@ for (const c of commenterChannels) {
 const DAY = 86_400_000
 const now = Date.now()
 
+const fmtInt = (n) => Number(n).toLocaleString('fi-FI')
+
+const median = (xs) => {
+  if (!xs.length) return 0
+  const s = [...xs].sort((a, b) => a - b)
+  const m = s.length >> 1
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2)
+}
+
+// ISO 8601 duration to seconds. Anything at or under three minutes is a Short by YouTube's
+// current limit, and a Shorts-only channel is a different proposition from a long-form one.
+const SHORT_MAX_SECONDS = 180
+function durationSeconds(iso) {
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '')
+  if (!m) return null
+  return (+(m[1] || 0)) * 86400 + (+(m[2] || 0)) * 3600 + (+(m[3] || 0)) * 60 + (+(m[4] || 0))
+}
+
 async function recentStats(r) {
   if (!r.uploads || units >= BUDGET - 20) return
-  const pl = await api('playlistItems', { part: 'contentDetails', playlistId: r.uploads, maxResults: 10 })
+  const pl = await api('playlistItems', { part: 'contentDetails', playlistId: r.uploads, maxResults: SAMPLE })
   const ids = (pl.items || []).map((i) => i.contentDetails.videoId)
   if (!ids.length) return
-  const vd = await api('videos', { part: 'snippet,statistics', id: ids.join(',') })
+  const vd = await api('videos', { part: 'snippet,statistics,contentDetails', id: ids.join(',') })
   const vids = (vd.items || []).map((v) => ({
     at: Date.parse(v.snippet.publishedAt),
     views: Number(v.statistics.viewCount || 0),
+    likes: Number(v.statistics.likeCount || 0),
+    comments: Number(v.statistics.commentCount || 0),
+    seconds: durationSeconds(v.contentDetails?.duration),
     lang: v.snippet.defaultAudioLanguage || v.snippet.defaultLanguage || null,
     title: v.snippet.title,
     tags: v.snippet.tags || [],
-  }))
+  })).sort((a, b) => b.at - a.at)
   if (!vids.length) return
 
-  const newest = Math.max(...vids.map((v) => v.at))
+  const newest = vids[0].at
+  const oldest = vids[vids.length - 1].at
+  // Akseli's own definition: 30 days for active channels, 90 for less active ones.
   const window = now - newest > 30 * DAY ? 90 : 30
   const inWindow = vids.filter((v) => now - v.at <= window * DAY)
   const used = inWindow.length ? inWindow : vids.slice(0, 5)
 
   r.avgViews = Math.round(used.reduce((a, v) => a + v.views, 0) / used.length)
+  // The median as well, because one video that broke out makes the mean say the wrong thing
+  // about what a normal video on this channel does.
+  r.medianViews = median(used.map((v) => v.views))
   r.viewWindow = `${window}d`
+  r.sampleVideos = vids.length
   r.daysSinceUpload = Math.round((now - newest) / DAY)
-  r.uploadsPerMonth = Number((vids.length / Math.max(1, (now - Math.min(...vids.map((v) => v.at))) / DAY / 30)).toFixed(1))
+  r.uploadsPerMonth = Number((vids.length / Math.max(1, (now - oldest) / DAY / 30)).toFixed(1))
   r.viewRatio = r.subs ? Number((r.avgViews / r.subs).toFixed(2)) : 0
+
+  // Engagement. This is what influencer platforms charge for, and both numbers are already in
+  // the response we paid for. likeCount is hidden on some channels, so it can be null.
+  const sum = (k) => used.reduce((a, v) => a + v[k], 0)
+  const totalViews = sum('views')
+  r.likeRate = totalViews ? Number(((sum('likes') / totalViews) * 100).toFixed(2)) : null
+  r.commentRate = totalViews ? Number(((sum('comments') / totalViews) * 100).toFixed(2)) : null
+
+  // Format mix.
+  const timed = vids.filter((v) => v.seconds != null)
+  if (timed.length) {
+    r.shortsShare = Math.round((timed.filter((v) => v.seconds <= SHORT_MAX_SECONDS).length / timed.length) * 100)
+    r.medianSeconds = median(timed.map((v) => v.seconds))
+  }
+
+  // Trend: median views of the newer half against the older half of the same sample.
+  //
+  // This is deliberately conservative. Older videos have had longer to accumulate views, so a
+  // flat ratio already means the channel is growing, and only a clear drop is called falling.
+  if (vids.length >= 6) {
+    const half = Math.floor(vids.length / 2)
+    const newer = median(vids.slice(0, half).map((v) => v.views))
+    const older = median(vids.slice(half).map((v) => v.views))
+    if (older > 0) {
+      r.trendPct = Math.round(((newer - older) / older) * 100)
+      r.trend = r.trendPct >= 25 ? 'nouseva' : r.trendPct <= -30 ? 'laskeva' : 'vakaa'
+      r.trendSpanDays = Math.round((newest - oldest) / DAY)
+    }
+  }
+
   for (const v of used) if (v.lang) r.langs.push(v.lang)
-  r.nicheText = used.map((v) => `${v.title} ${v.tags.join(' ')}`).join(' ').slice(0, 500)
+  // Every sampled video, not only the ones in the window: the niche is a property of the channel
+  // and more text means a more specific reading of it.
+  r.nicheText = vids.map((v) => `${v.title} ${v.tags.join(' ')}`).join(' ').slice(0, 1500)
+  r.topVideo = vids.reduce((a, v) => (v.views > a.views ? v : a), vids[0]).title
   if (YOUTH_HINT.test(r.nicheText)) r.youthHint = true
 }
 
@@ -345,6 +664,62 @@ console.log(`Measuring recent performance for ${forStats.length} channels...`)
 for (const r of forStats) {
   try { await recentStats(r) } catch (e) { if (e.message.includes('budget')) break }
 }
+
+// ---------- 5b. how long this creator stays buyable ----------
+//
+// Their own rejection data says that above the taken zone someone else already signed the creator.
+// So for a growing creator the question is not "is the size right" but "how long does the size
+// stay right". A 5k creator growing fast is a cheap deal with a deadline on it.
+//
+// The API gives no subscriber history, so the pace has to come from something it does give: the
+// channel's age and its current size. Subscribers per month since the channel started is a
+// measurement, not a guess, and the projection off it is linear.
+//
+// An earlier version compounded the view trend into a monthly growth rate. It claimed a 2 080
+// subscriber channel would cross 110 000 in one month, because a +89 % view trend measured over
+// five days becomes 4 000 % a month when you raise it to the power of six. Extrapolating a short
+// window is not a forecast, it is amplified noise, and it is removed.
+//
+// What is left is deliberately conservative in a known direction: a lifetime average understates
+// a channel that is accelerating. So the view trend is used as a qualifier rather than a rate —
+// the warning only fires when the average pace is fast AND views are currently rising.
+const MONTH = 30
+const MIN_AGE_FOR_PACE = 180 // below six months old the average is not stable enough to use
+
+function projectGrowth(r) {
+  if (r.subs < 500 || !r.channelAgeDays || r.channelAgeDays < MIN_AGE_FOR_PACE) return
+
+  const perMonth = Math.round((r.subs / r.channelAgeDays) * MONTH)
+  r.subsPerMonth = perMonth
+  if (perMonth < 50 || r.subs >= TAKEN_ZONE) return
+
+  const months = Math.round((TAKEN_ZONE - r.subs) / perMonth)
+  if (!Number.isFinite(months) || months <= 0) return
+  r.monthsToBound = Math.min(120, months)
+  // Both conditions have to hold: a pace that gets there within a year, and views that are
+  // actually rising right now rather than a channel that grew years ago and stalled.
+  r.signNow = r.monthsToBound <= 12 && r.trend === 'nouseva'
+}
+
+// The same "buy before it gets expensive" idea for a small channel, without any projection.
+//
+// Months-to-bound only ever fires for channels already near the bound, because a lifetime average
+// pace will not carry a 5 000 subscriber channel to 110 000 inside a year. For the small tail the
+// measurable version of the signal is different: the channel is already reaching more people than
+// it has subscribers, and that reach is growing. No extrapolation, two measured quantities.
+function markBreakout(r) {
+  r.breakingOut =
+    r.subs < 50_000 &&
+    r.subs >= 500 &&
+    r.trend === 'nouseva' &&
+    r.viewRatio >= 0.8 &&
+    r.viewRatio <= 3.0 && // above this it is borrowed content, not reach
+    (r.daysSinceUpload ?? 999) <= 30
+}
+
+for (const r of candidates.values()) markBreakout(r)
+
+for (const r of candidates.values()) projectGrowth(r)
 
 // ---------- 6. country inference ----------
 
@@ -409,12 +784,21 @@ for (const r of candidates.values()) {
   // their rejections for "competitor / exclusivity" had a YouTube median of 479k.
   if (r.subs > TAKEN_ZONE) {
     score -= 30
-    reasons.push(`${Math.round(r.subs / 1000)}k tilaajaa, tässä koossa 5/5 hylättiin kilpailijan tai eksklusiivisuuden takia`)
+    reasons.push(`${Math.round(r.subs / 1000)}k tilaajaa, yli rajan ${Math.round(TAKEN_ZONE / 1000)}k: ${B.basis.takenZone}`)
   }
   if (r.subs > MAX_SUBS) { score -= 20; reasons.push('selvästi yli heidän haarukkansa') }
 
   // Already promotes another PC retailer. Largest single rejection reason in their own data.
   if (r.competitor) { score -= 40; reasons.push(`mainitsee kilpailijan (${r.competitor})`) }
+
+  // A component or peripheral brand is not a competitor: they sell a keyboard, Prenew sells a
+  // machine. It is a mild positive instead, because the creator has done a hardware deal before
+  // and knows how one works. This distinction exists because lumping the two together flagged
+  // one of Prenew's own partners as promoting a competitor.
+  if (r.hardwareSponsor && !r.competitor) {
+    score += 5
+    reasons.push(`tehnyt laitteistoyhteistyön (${r.hardwareSponsor}), ei kilpailija`)
+  }
 
   // An organisation has no persona to partner with.
   if (r.organisation) { score -= 40; reasons.push('organisaatio, ei tekijä') }
@@ -428,11 +812,72 @@ for (const r of candidates.values()) {
       : `TE HYLKÄSITTE TÄMÄN: ${r.rejected.reason}`)
   }
 
-  // Niche that implies a PC purchase.
-  const nw = nicheScore(`${r.title} ${r.desc} ${r.nicheText || ''}`)
-  score += Math.round(nw * 20)
-  if (nw >= 0.9) reasons.push('niche vaatii koneen')
-  else if (nw <= 0.3) reasons.push('niche ei vaadi konetta')
+  // Niche. Kept on the record because Akseli asked for it as an output field, and used as a
+  // weight because some niches imply a PC purchase and some argue against one.
+  const n = classifyNiche(nicheBasis(r))
+  r.niche = n.kind
+  r.nicheLabel = n.primary?.label || 'Tuntematon'
+  r.games = n.games
+  r.nicheKeys = n.keys
+  r.onRequestedNiche = !WANT.length || n.keys.some((k) => WANT.includes(k))
+  score += Math.round(n.w * 20)
+  if (n.w >= 0.9) reasons.push(`${r.nicheLabel}, niche vaatii koneen`)
+  else if (n.w <= 0.3) reasons.push(`${r.nicheLabel}, niche ei vaadi konetta`)
+  else if (n.primary) reasons.push(r.nicheLabel)
+
+  // Growing now is worth more than having been big. Their own rejections show the opposite end:
+  // by the time a creator is large, someone else already signed them.
+  if (r.trend === 'nouseva') { score += 10; reasons.push(`katselut nousussa ${r.trendPct} %`) }
+  else if (r.trend === 'laskeva') { score -= 10; reasons.push(`katselut laskussa ${r.trendPct} %`) }
+
+  // The closing window. This is the one signal that says act rather than consider.
+  if (r.signNow) {
+    score += 15
+    reasons.unshift(`KIINNITÄ NYT: kasvaa ${fmtInt(r.subsPerMonth)} tilaajaa/kk, arviolta ${r.monthsToBound} kk ${Math.round(TAKEN_ZONE / 1000)}k rajaan`)
+  } else if (r.monthsToBound != null && r.monthsToBound <= 24 && r.trend !== 'laskeva') {
+    score += 5
+    reasons.push(`arviolta ${r.monthsToBound} kk rajaan nykytahdilla`)
+  }
+
+  if (r.breakingOut) {
+    score += 15
+    reasons.unshift(`NOUSUKIITO: tavoittaa ${Math.round(r.viewRatio * 100)} % tilaajamäärästään per video ja kasvaa, vielä ${fmtInt(r.subs)} tilaajaa`)
+  }
+
+  // Audience lean, and the segment being sold to. The lean is read off the niche and the creator's
+  // own words, never measured, so it moves the score modestly and always says which way it read.
+  const youngLean = n.keys.some((k) => YOUNG_NICHES.has(k)) || r.youthHint || r.familySignal
+  const adultLean = n.keys.some((k) => ADULT_NICHES.has(k))
+  r.audience = youngLean && !adultLean ? 'nuori' : adultLean && !youngLean ? 'aikuinen' : 'sekalainen'
+  // The parent is reachable when the channel says so itself, which is stronger than the niche.
+  r.parentsChoice = r.familySignal || (youngLean && r.youthHint)
+
+  if (SEGMENT === 'parents') {
+    if (r.parentsChoice) { score += 20; reasons.push('vanhempi tavoitettavissa kanavan omin sanoin') }
+    else if (youngLean) { score += 8; reasons.push('nuori yleisö, ostaja on vanhempi') }
+    if (adultLean && !youngLean) { score -= 15; reasons.push('aikuisyleisö, ei Vanhempien valinta -tuotteelle') }
+  } else if (SEGMENT === 'adults') {
+    if (adultLean && !youngLean) { score += 15; reasons.push('aikuisyleisö ostaa itselleen') }
+    if (youngLean && !adultLean) { score -= 15; reasons.push('nuori yleisö, ostopäätös on muualla') }
+  }
+
+  // What actually sold machines. Dormant until they record enough code results; the weight is
+  // small even then, because it is their data and not ours that decides how much it is worth.
+  if (B.sales.active && B.sales.bestBand) {
+    const band = B.sales.byBand.find((b) => b.band === B.sales.bestBand)
+    const [lo, hi] = { '0-10k': [0, 10_000], '10-50k': [10_000, 50_000], '50-110k': [50_000, 110_000], '110k+': [110_000, Infinity] }[B.sales.bestBand]
+    if (r.subs >= lo && r.subs < hi) {
+      score += 15
+      reasons.push(`kokoluokka ${B.sales.bestBand} tuotti teillä ${band.ordersPerCreator} tilausta per tekijä`)
+    }
+  }
+
+  // Reach on more than the two platforms they asked about. Small weight on purpose: their own
+  // data measures YouTube and TikTok, so IG, Twitch and FB are reported more than they are scored.
+  if (r.platforms.length >= 3) {
+    score += 5
+    reasons.push(`${r.platforms.length} alustaa (${r.platforms.slice(1).join(', ')})`)
+  }
 
   // In their proven size range.
   if (r.subs >= MIN_SUBS && r.subs <= MAX_SUBS) { score += 15; reasons.push('kokoluokka osuu') }
@@ -459,15 +904,53 @@ for (const r of candidates.values()) {
   r.reason = reasons.join('; ')
 }
 
+// ---------- 7b. who has been seen before ----------
+//
+// This answers the question a scheduled run actually asks: which of these are new since last time.
+// Without it a weekly cron re-delivers the same thousand rows and the file stops being read.
+//
+// It stores a one-way hash of the channel id and two dates. Nothing else, and the hash rather than
+// the id on purpose.
+//
+// YouTube's Developer Policies III.E.4.d allow non-authorized API data to be kept "not longer than
+// 30 calendar days", and III.E.4.c requires that after 30 days the client "must either delete or
+// refresh the stored data". The policies grant no exemption for resource ids, so storing channel
+// ids indefinitely would be a claim we cannot support. A salted hash is not YouTube data: it can
+// answer "have I seen this one before" and nothing else, because it cannot be turned back into an
+// id or used to retrieve anything.
+//
+// This is also why the engine is a run and not a database, and why the right move is to act on a
+// whole batch while it is fresh rather than to accumulate creators and drip-feed from the pile.
+const SEEN_PATH = new URL('../data/seen.json', import.meta.url)
+const today = new Date().toISOString().slice(0, 10)
+const seenKey = (id) => createHash('sha1').update(`prenew-seen:${id}`).digest('hex').slice(0, 16)
+
+let ledger = {}
+try {
+  if (existsSync(SEEN_PATH)) ledger = JSON.parse(readFileSync(SEEN_PATH, 'utf8'))
+} catch { /* a corrupt ledger must not stop a run: the worst case is everything looks new */ }
+
+for (const r of candidates.values()) {
+  const prior = ledger[seenKey(r.id)]
+  r.firstSeen = prior?.first || today
+  r.isNew = !prior
+}
+
 // ---------- 8. output ----------
 
-const scored = [...candidates.values()]
+const eligible = [...candidates.values()]
   .filter((r) => !r.sideChannel)
   .filter((r) => r.videos >= MIN_VIDEOS && r.subs >= 500)
   .filter((r) => r.avgViews != null)
   // Keep their markets, and keep unknowns: an empty country field is common precisely among the
   // small local creators this is meant to find. Drop creators clearly outside their footprint.
   .filter((r) => r.inTargetMarket || !r.country)
+
+// A requested niche restricts the file. Asking for Minecraft and getting a music channel back is
+// the behaviour of the platforms that did not work for them.
+const offNiche = eligible.filter((r) => !r.onRequestedNiche).length
+const scored = eligible
+  .filter((r) => r.onRequestedNiche)
   .sort((a, b) => b.score - a.score)
 
 // Known partners and previously rejected creators stay in the file, because finding them proves
@@ -477,28 +960,68 @@ const results = [...scored.filter((r) => !seen(r)), ...scored.filter(seen)]
 const alreadyKnown = scored.filter((r) => r.known)
 const alreadyRejected = scored.filter((r) => r.rejected)
 
+// Column order is reading order in Excel: who, where, what about, how big, how healthy, how to
+// reach, what we already know, why it is on the list, and finally the two empty ones they fill in.
 const csvCols = [
   ['pisteet', (r) => r.score],
   ['kanava', (r) => r.title],
+  ['tunnus', (r) => r.handle || ''],
   ['url', (r) => r.url],
   ['maa', (r) => r.country || ''],
   ['maan_varmuus', (r) => r.countryConfidence],
   ['kieli', (r) => r.langCode || ''],
+  ['niche', (r) => r.niche],
+  ['niche_tarkka', (r) => r.nicheLabel],
+  ['pelit', (r) => (r.games || []).join(' | ')],
   ['tilaajat', (r) => r.subs],
   ['katselut_per_video', (r) => r.avgViews ?? ''],
+  ['katselu_mediaani', (r) => r.medianViews ?? ''],
   ['katselu_ikkuna', (r) => r.viewWindow || ''],
   ['katselut_per_tilaaja', (r) => r.viewRatio ?? ''],
+  ['trendi', (r) => r.trend || ''],
+  ['trendi_pros', (r) => (r.trendPct != null ? r.trendPct : '')],
+  ['tilaajaa_per_kk', (r) => (r.subsPerMonth != null ? r.subsPerMonth : '')],
+  ['kk_rajaan_arvio', (r) => (r.monthsToBound != null ? r.monthsToBound : '')],
+  ['kiinnita_nyt', (r) => (r.signNow ? 'kyllä' : '')],
+  ['yleiso', (r) => r.audience || ''],
+  ['vanhempien_valinta', (r) => (r.parentsChoice ? 'kyllä' : '')],
   ['videoita_per_kk', (r) => r.uploadsPerMonth ?? ''],
   ['pv_edellisesta', (r) => r.daysSinceUpload ?? ''],
-  ['tiktok', (r) => (r.tiktok ? `@${r.tiktok}` : '')],
+  ['videoita_yhteensa', (r) => r.videos],
+  ['lyhytvideo_osuus', (r) => (r.shortsShare != null ? `${r.shortsShare} %` : '')],
+  ['tykkays_pros', (r) => (r.likeRate != null ? r.likeRate : '')],
+  ['kommentti_pros', (r) => (r.commentRate != null ? r.commentRate : '')],
+  ['kanavan_ika_pv', (r) => r.channelAgeDays ?? ''],
+  ['tiktok', (r) => (r.tiktok ? (r.tiktok === '(linkki)' ? 'kyllä' : `@${r.tiktok}`) : '')],
+  ['instagram', (r) => (r.instagram ? `@${r.instagram}` : '')],
+  ['twitch', (r) => r.twitch || ''],
+  ['facebook', (r) => r.facebook || ''],
+  ['x', (r) => (r.twitter ? `@${r.twitter}` : '')],
   ['yhteystieto', (r) => r.email || ''],
+  ['yhteystieto_business', (r) => r.emailBusiness || ''],
   ['puhuu_laitteistosta', (r) => (r.rigTalk ? 'kyllä' : '')],
   ['nuori_yleiso', (r) => (r.youthHint ? 'kyllä' : '')],
   ['jo_kumppani', (r) => (r.known ? 'kyllä' : '')],
   ['aiemmin_hylatty', (r) => (r.rejected ? r.rejected.reason : '')],
   ['kilpailija', (r) => r.competitor || ''],
+  ['laitteistosponsori', (r) => r.hardwareSponsor || ''],
+  ['uusi', (r) => (r.isNew ? 'kyllä' : '')],
+  ['ensin_nahty', (r) => r.firstSeen || ''],
   ['loytyi', (r) => (r.via === 'chart' ? 'maalista' : 'kommentoija')],
+  ['siemen', (r) => discovered.get(r.id)?.seed || ''],
+  ['paras_video', (r) => r.topVideo || ''],
   ['perustelu', (r) => r.reason],
+  // The feedback loop, and the only columns a human writes in. The next run reads them back, which
+  // is how the scoring bounds get recalculated from their outcomes instead of our guesses.
+  //
+  // tilauksia and myynti_eur are the two that matter most: Prenew measures a collaboration at the
+  // checkout from the discount code, so this is the only column here that records whether a machine
+  // was actually sold rather than whether a message was answered.
+  ['lopputulos', () => ''],
+  ['hylkayssyy', () => ''],
+  ['koodi', () => ''],
+  ['tilauksia', () => ''],
+  ['myynti_eur', () => ''],
 ]
 
 const esc = (v) => {
@@ -510,28 +1033,132 @@ const csv = [
   ...results.map((r) => csvCols.map(([, f]) => esc(f(r))).join(',')),
 ].join('\n')
 
-stage('Heidän markkinoillaan', results.length, 'muut maat pudotettu, tuntemattomat jätetty')
+stage('Heidän markkinoillaan', eligible.length, 'muut maat pudotettu, tuntemattomat jätetty')
+if (WANT.length) {
+  stage('Pyydetyssä nichessä', results.length, `${WANT.join(', ')} · ${offNiche} muuta nicheä pudotettu`)
+}
 
 writeFileSync(`${OUT}/creators.csv`, csv)
 writeFileSync(`${OUT}/creators.json`, JSON.stringify(results, null, 1))
-writeFileSync(`${OUT}/pipeline.json`, JSON.stringify({ stages, units, cacheHits, markets: MARKETS }, null, 1))
+
+// ---------- the competitor's own roster, which is the same detection read the other way ----------
+//
+// A creator who names another PC shop in their description is Prenew's single largest rejection
+// reason, so they get pushed down the list. Read in the other direction the same rows are a list
+// of who the competitors are paying, which nobody sells them and which costs nothing to produce.
+// Exclusivity ends, and when it does this is the queue.
+const competitorPartners = eligible
+  .filter((r) => r.competitor)
+  .sort((a, b) => a.competitor.localeCompare(b.competitor) || b.subs - a.subs)
+
+if (competitorPartners.length) {
+  const cols = [
+    ['kilpailija', (r) => r.competitor],
+    ['kanava', (r) => r.title],
+    ['url', (r) => r.url],
+    ['maa', (r) => r.country || ''],
+    ['tilaajat', (r) => r.subs],
+    ['katselut_per_video', (r) => r.avgViews ?? ''],
+    ['niche_tarkka', (r) => r.nicheLabel],
+    ['trendi', (r) => r.trend || ''],
+    ['yhteystieto', (r) => r.email || ''],
+    ['puhuu_laitteistosta', (r) => (r.rigTalk ? 'kyllä' : '')],
+    ['perustelu', (r) => r.reason],
+  ]
+  writeFileSync(
+    `${OUT}/kilpailijoiden-kumppanit.csv`,
+    [cols.map(([h]) => h).join(','), ...competitorPartners.map((r) => cols.map(([, f]) => esc(f(r))).join(','))].join('\n'),
+  )
+}
+writeFileSync(`${OUT}/pipeline.json`, JSON.stringify({
+  // What was asked for, so a run can be read back and compared to the next one.
+  request: { markets: MARKETS, niches: WANT, segment: SEGMENT, minSubs: MIN_SUBS, maxSubs: MAX_SUBS, seedsPerMarket: SEEDS_PER_MARKET, videosPerSeed: VIDEOS_PER_SEED, sample: SAMPLE },
+  // The bounds this run used and what each one rests on, so the file explains its own opinions.
+  bounds: {
+    takenZone: TAKEN_ZONE,
+    priceyTiktok: B.priceyTiktok,
+    realisedMedian: B.realisedMedian,
+    basis: B.basis,
+    counts: B.counts,
+    reasonCounts: B.reasonCounts,
+    sales: B.sales,
+  },
+  stages, units, cacheHits, markets: MARKETS,
+  // Every endpoint this pipeline touches costs exactly one quota unit, and search (100 units) is
+  // never called. So the number of calls is the cost, and a cold run costs units + cacheHits
+  // however much of this particular run came off the disk.
+  coldUnits: units + cacheHits,
+  dailyFreeUnits: 10_000,
+}, null, 1))
+
+// Update the ledger. Only creators that made it into a file are recorded, so a channel that was
+// merely fetched and filtered out does not count as "seen" and can still surface later.
+for (const r of results) {
+  ledger[seenKey(r.id)] = { first: r.firstSeen, last: today }
+}
+try {
+  writeFileSync(SEEN_PATH, JSON.stringify(ledger))
+} catch (e) { console.log(`(kirjanpitoa ei voitu päivittää: ${e.message})`) }
+
+const freshSinceLastRun = results.filter((r) => r.isNew)
 
 const inRange = results.filter((r) => r.subs >= MIN_SUBS && r.subs <= MAX_SUBS)
 const small = results.filter((r) => r.subs < 50_000)
 const fromComments = results.filter((r) => r.via === 'commenter')
+
+// Run journal. One line per run, appended, so list_runs can say what was asked for, what came
+// back and which bounds were in force. Without it "what changed since last time" is unanswerable.
+const journalEntry = {
+  at: new Date().toISOString(),
+  request: { markets: MARKETS, niches: WANT, minSubs: MIN_SUBS, maxSubs: MAX_SUBS, seeds: SEEDS_PER_MARKET, videos: VIDEOS_PER_SEED },
+  out: OUT,
+  results: results.length,
+  inRange: inRange.length,
+  underFifty: small.length,
+  fromCommenters: fromComments.length,
+  newSinceLastRun: freshSinceLastRun.length,
+  withEmail: results.filter((r) => r.email).length,
+  onTikTok: results.filter((r) => r.tiktok).length,
+  rising: results.filter((r) => r.trend === 'nouseva').length,
+  knownPartnersFound: results.filter((r) => r.known).map((r) => r.title),
+  units,
+  coldUnits: units + cacheHits,
+  bounds: { takenZone: TAKEN_ZONE, realisedMedian: B.realisedMedian, recordedOutcomes: B.counts.recorded },
+}
+const JOURNAL = new URL('../data/runs.jsonl', import.meta.url)
+try {
+  const prev = existsSync(JOURNAL) ? readFileSync(JOURNAL, 'utf8') : ''
+  writeFileSync(JOURNAL, prev + JSON.stringify(journalEntry) + '\n')
+} catch (e) { console.log(`(ajohistoriaa ei voitu kirjoittaa: ${e.message})`) }
 
 console.log(`\n=== TULOS ===`)
 console.log(`Tekijöitä listalla:        ${results.length}`)
 console.log(`  Prenewin haarukassa:     ${inRange.length}`)
 console.log(`  alle 50k tilaajaa:       ${small.length}`)
 console.log(`  löytyi kommentoijana:    ${fromComments.length}`)
+console.log(`  UUSIA viime ajon jälkeen:${String(freshSinceLastRun.length).padStart(4)} (kirjanpidossa ${Object.keys(ledger).length} tunnusta)`)
 console.log(`  puhuu laitteistosta:     ${results.filter((r) => r.rigTalk).length}`)
-console.log(`  molemmilla alustoilla:   ${results.filter((r) => r.tiktok).length}`)
-console.log(`  yhteystieto tiedossa:    ${results.filter((r) => r.email).length}`)
+console.log(`  myös TikTokissa:         ${results.filter((r) => r.tiktok).length}`)
+console.log(`  myös Instagramissa:      ${results.filter((r) => r.instagram).length}`)
+console.log(`  myös Twitchissä:         ${results.filter((r) => r.twitch).length}`)
+console.log(`  vähintään 3 alustalla:   ${results.filter((r) => r.platforms.length >= 3).length}`)
+console.log(`  yhteystieto tiedossa:    ${results.filter((r) => r.email).length} (business-osoite ${results.filter((r) => r.emailBusiness).length})`)
+console.log(`  katselut nousussa:       ${results.filter((r) => r.trend === 'nouseva').length}`)
+console.log(`  katselut laskussa:       ${results.filter((r) => r.trend === 'laskeva').length}`)
+console.log(`  KIINNITÄ NYT (alle 12kk):${String(results.filter((r) => r.signNow).length).padStart(4)}`)
+console.log(`  vanhempien valinta:      ${results.filter((r) => r.parentsChoice).length}`)
+console.log(`  yleisö nuori/aikuinen:   ${results.filter((r) => r.audience === 'nuori').length} / ${results.filter((r) => r.audience === 'aikuinen').length}`)
+if (competitorPartners.length) {
+  const byComp = {}
+  for (const r of competitorPartners) byComp[r.competitor] = (byComp[r.competitor] || 0) + 1
+  console.log(`  kilpailijoiden kumppaneita: ${competitorPartners.length} (${Object.entries(byComp).map(([k, v]) => `${k} ${v}`).join(', ')})`)
+  console.log(`     → ${OUT}/kilpailijoiden-kumppanit.csv`)
+}
 console.log(`  merkitty nuori yleisö:   ${results.filter((r) => r.youthHint).length}`)
 console.log(`  jo heidän kumppaneitaan: ${alreadyKnown.length}${alreadyKnown.length ? ` (${alreadyKnown.map((r) => r.title).join(', ')})` : ''}`)
 console.log(`  aiemmin hylättyjä:       ${alreadyRejected.length}${alreadyRejected.length ? ` (${alreadyRejected.map((r) => `${r.title}: ${r.rejected.reason}`).join(', ')})` : ''}`)
 console.log(`  mainitsee kilpailijan:   ${results.filter((r) => r.competitor).length}`)
+console.log(`  laitteistosponsori:      ${results.filter((r) => r.hardwareSponsor && !r.competitor).length} (komponenttibrändi, ei kilpailija)`)
 console.log(`  yli 110k (jo varattuja): ${results.filter((r) => r.subs > TAKEN_ZONE).length}`)
 const byCountry = {}
 for (const r of results) byCountry[r.country || 'tuntematon'] = (byCountry[r.country || 'tuntematon'] || 0) + 1
@@ -539,7 +1166,13 @@ const spread = Object.entries(byCountry).sort((a, b) => b[1] - a[1]).map(([k, v]
 console.log(`Maittain: ${spread}`)
 const missing = MARKETS.filter((m) => !byCountry[m])
 if (missing.length) console.log(`EI YHTÄÄN näistä markkinoista: ${missing.join(', ')}`)
-console.log(`Kiintiö: ${units} yksikköä käytetty, ${cacheHits} osumaa välimuistista`)
+
+const byNiche = {}
+for (const r of results) byNiche[r.nicheLabel] = (byNiche[r.nicheLabel] || 0) + 1
+console.log(`Nichet: ${Object.entries(byNiche).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' | ')}`)
+if (WANT.length) console.log(`Pyydetty niche: ${WANT.join(', ')} — ${offNiche} muuta tekijää pudotettu tiedostosta`)
+console.log(`Kiintiö: ${units} yksikköä käytetty, ${cacheHits} osumaa välimuistista${cacheExpired ? `, ${cacheExpired} vanhentunutta (yli 30 pv, haettu uudelleen)` : ''}`)
+console.log(`  koko ajo kylmänä: ${units + cacheHits} / 10 000 yksikköä päivässä (${Math.round(((units + cacheHits) / 10_000) * 100)} %), uusinta ${units}`)
 console.log(`\nKirjoitettu: ${OUT}/creators.csv ja ${OUT}/creators.json`)
 
 console.log(`\nKärki 15:`)
