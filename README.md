@@ -2,8 +2,13 @@
 
 Prompt Marketing Hackathon 2026 · Prenew challenge · team **antipöhinä**
 
-Toissijainen kohde. Mergero on lukittu pääkohteeksi; tämä rakennetaan vain jos moottori on valmis
-ajoissa. Tiedosto on tehty siksi, että jos aika riittää, työ alkaa tästä eikä tyhjästä.
+> **Tila 27.9.2026.** Rakennettu ja ajettu. Tämä tiedosto on tausta-analyysi, joka kirjoitettiin
+> ennen toteutusta, ja sen luvut kuvaavat Prenewin omaa aineistoa eivätkä ajon tuloksia.
+>
+> - Mitä asiakkaalle toimitetaan ja miten sen ottaa käyttöön: [`TOIMITUS.md`](TOIMITUS.md)
+> - Ajon todelliset tulokset: [`results/2026-09-27/`](results/2026-09-27/) — 1 000 tekijää,
+>   752 alle 50 000 tilaajan, 775 kommentoijareitistä, 3 864 / 10 000 kiintiöyksikköä
+> - Kohdennettu ajo (Saksa + Minecraft): [`results/2026-09-27/de-minecraft/`](results/2026-09-27/de-minecraft/)
 
 ---
 

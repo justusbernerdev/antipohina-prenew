@@ -1,0 +1,112 @@
+{
+ "request": {
+  "markets": [
+   "FI",
+   "SE",
+   "DE",
+   "EE",
+   "HU",
+   "LV",
+   "LT",
+   "PL",
+   "DK",
+   "NL",
+   "FR"
+  ],
+  "niches": [],
+  "minSubs": 4000,
+  "maxSubs": 250000,
+  "seedsPerMarket": 12,
+  "videosPerSeed": 4,
+  "sample": 20
+ },
+ "bounds": {
+  "takenZone": 110000,
+  "priceyTiktok": 79000,
+  "realisedMedian": 75000,
+  "basis": {
+   "takenZone": "5 hylkäystä syystä kilpailija tai eksklusiivisuus, pienin niistä 110 000 tilaajaa",
+   "priceyTiktok": "4 hylkäystä hintasyystä, pienin TikTok-seuraajamäärä 79 000",
+   "realisedMedian": "23 tekijää joilla on tilaajaluku ja toteutunut yhteistyö, mediaani 75 000"
+  },
+  "counts": {
+   "collaborations": 69,
+   "creators": 51,
+   "repeated": 10,
+   "rejections": 26,
+   "recorded": 0
+  },
+  "reasonCounts": {
+   "Silence after price": 1,
+   "Silence": 2,
+   "Price": 4,
+   "Competitor / exclusivity": 5,
+   "Timing": 1,
+   "Language": 1,
+   "Brand/channel mismatch": 2,
+   "Content fit": 1,
+   "Inconsistent views": 2,
+   "Audience/market unclear": 1,
+   "Too small": 2,
+   "Platform": 1,
+   "Platform / content": 1,
+   "Inactive": 1,
+   "Not a creator": 1
+  }
+ },
+ "stages": [
+  {
+   "name": "Maakohtaiset pelilistat",
+   "count": 11,
+   "note": "yksi kutsu per markkina",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Kanavia listoilta",
+   "count": 335,
+   "note": "julkisesti löydettävissä",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Siemeniä laajennukseen",
+   "count": 132,
+   "note": "oikeita tekijöitä haarukassa, pienimmät ensin",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Kommentoijia",
+   "count": 20109,
+   "note": "sata kanavatunnusta per kiintiöyksikkö · 6 videolla kommentit pois",
+   "unitsAfter": 6
+  },
+  {
+   "name": "Oikeita tekijöitä",
+   "count": 1386,
+   "note": "vähintään 5 videota ja 500 tilaajaa, sivukanavat karsittu",
+   "unitsAfter": 6
+  },
+  {
+   "name": "Heidän markkinoillaan",
+   "count": 1000,
+   "note": "muut maat pudotettu, tuntemattomat jätetty",
+   "unitsAfter": 6
+  }
+ ],
+ "units": 6,
+ "cacheHits": 3858,
+ "markets": [
+  "FI",
+  "SE",
+  "DE",
+  "EE",
+  "HU",
+  "LV",
+  "LT",
+  "PL",
+  "DK",
+  "NL",
+  "FR"
+ ],
+ "coldUnits": 3864,
+ "dailyFreeUnits": 10000
+}

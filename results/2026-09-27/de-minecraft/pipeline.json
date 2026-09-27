@@ -1,0 +1,101 @@
+{
+ "request": {
+  "markets": [
+   "DE"
+  ],
+  "niches": [
+   "minecraft",
+   "fortnite"
+  ],
+  "minSubs": 4000,
+  "maxSubs": 250000,
+  "seedsPerMarket": 20,
+  "videosPerSeed": 8,
+  "sample": 20
+ },
+ "bounds": {
+  "takenZone": 110000,
+  "priceyTiktok": 79000,
+  "realisedMedian": 75000,
+  "basis": {
+   "takenZone": "5 hylkäystä syystä kilpailija tai eksklusiivisuus, pienin niistä 110 000 tilaajaa",
+   "priceyTiktok": "4 hylkäystä hintasyystä, pienin TikTok-seuraajamäärä 79 000",
+   "realisedMedian": "23 tekijää joilla on tilaajaluku ja toteutunut yhteistyö, mediaani 75 000"
+  },
+  "counts": {
+   "collaborations": 69,
+   "creators": 51,
+   "repeated": 10,
+   "rejections": 26,
+   "recorded": 0
+  },
+  "reasonCounts": {
+   "Silence after price": 1,
+   "Silence": 2,
+   "Price": 4,
+   "Competitor / exclusivity": 5,
+   "Timing": 1,
+   "Language": 1,
+   "Brand/channel mismatch": 2,
+   "Content fit": 1,
+   "Inconsistent views": 2,
+   "Audience/market unclear": 1,
+   "Too small": 2,
+   "Platform": 1,
+   "Platform / content": 1,
+   "Inactive": 1,
+   "Not a creator": 1
+  }
+ },
+ "stages": [
+  {
+   "name": "Maakohtaiset pelilistat",
+   "count": 1,
+   "note": "yksi kutsu per markkina",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Kanavia listoilta",
+   "count": 50,
+   "note": "julkisesti löydettävissä",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Siemeniä laajennukseen",
+   "count": 13,
+   "note": "haarukassa ja pyydetyssä nichessä (minecraft, fortnite), pienimmät ensin",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Kommentoijia",
+   "count": 6044,
+   "note": "sata kanavatunnusta per kiintiöyksikkö · 0 videolla kommentit pois",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Oikeita tekijöitä",
+   "count": 304,
+   "note": "vähintään 5 videota ja 500 tilaajaa, sivukanavat karsittu",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Heidän markkinoillaan",
+   "count": 243,
+   "note": "muut maat pudotettu, tuntemattomat jätetty",
+   "unitsAfter": 0
+  },
+  {
+   "name": "Pyydetyssä nichessä",
+   "count": 109,
+   "note": "minecraft, fortnite · 134 muuta nicheä pudotettu",
+   "unitsAfter": 0
+  }
+ ],
+ "units": 0,
+ "cacheHits": 849,
+ "markets": [
+  "DE"
+ ],
+ "coldUnits": 849,
+ "dailyFreeUnits": 10000
+}
