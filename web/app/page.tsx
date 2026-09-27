@@ -38,6 +38,46 @@ export default function Page() {
           jota vaikuttaja-alustat eivät näe.
         </p>
 
+        {/* The one thing that has to be clear before anything else: this is an engine, and there
+            are three ways to take it. Sanoitte ettette halua erillistä työkalua — tämä ei ole. */}
+        <div className="mt-8 rounded-brand-lg border border-forest bg-forest-10 p-5">
+          <p className="font-display text-base font-bold">
+            Tämä on <span className="text-forest">engine</span>, ei sovellus johon kirjaudutaan.
+          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-2">
+            Sanoitte ettette halua erillistä työkalua eikä uutta työnkulkua. Tämä ei ole
+            kumpaakaan. Se on moottori jossa on tieto-taito, ja te kytkette sen siihen mitä teillä
+            jo on — kolmella tavalla, ja valitsette itse.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <Route
+              n="1"
+              title="MCP"
+              body="Teidän agenttiprosessinne kysyy kandidaatteja suoraan. Viisi työkalua, ei asennusta."
+            />
+            <Route
+              n="2"
+              title="Oma järjestelmä"
+              body="CSV ja JSON ulos, ajastettuna cronissa. Menee sinne minne muukin datanne menee."
+            />
+            <Route
+              n="3"
+              title="Kytkettynä lähetykseen"
+              body="Löydöt siirtyvät yhteydenottoon briiffi mukanaan, ja tulokset valuvat takaisin teidän järjestelmäänne."
+              accent
+            />
+          </div>
+          <p className="mt-4 border-t border-forest-40 pt-3 text-sm leading-relaxed">
+            Kolmas on valinnainen eikä kuulu haasteeseen. Mutta siitä seuraa yksi asia joka
+            kannattaa sanoa ääneen:{' '}
+            <strong className="font-semibold">
+              &rdquo;emme saa kontaktoitua vaikuttajia&rdquo; ei ole enää syy.
+            </strong>{' '}
+            Ei ensi kuussa vaan tänään, ja tässä on {fmt(stats.withEmail)} tekijää joilla on
+            sähköpostiosoite tiedossa.
+          </p>
+        </div>
+
         <dl className="nums mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-brand-lg border border-line bg-line sm:grid-cols-4">
           <Tile k="tekijää" v={fmt(stats.fresh)} note="uusia löytöjä" />
           <Tile k="alle 50k tilaajaa" v={fmt(stats.small)} note={`${pct(stats.small, stats.fresh)} % listasta`} accent />
@@ -624,6 +664,26 @@ function BoundCard({
       </p>
       <p className="mt-2 text-xs leading-relaxed text-ink-2">{basis}</p>
       <p className="mt-2 border-t border-line pt-2 text-[11px] font-semibold text-ink-3">{effect}</p>
+    </div>
+  )
+}
+
+function Route({
+  n,
+  title,
+  body,
+  accent,
+}: {
+  n: string
+  title: string
+  body: string
+  accent?: boolean
+}) {
+  return (
+    <div className={`rounded-brand border bg-surface-2 p-3 ${accent ? 'border-forest-60' : 'border-forest-40'}`}>
+      <p className="font-display text-xs font-extrabold text-forest">{n}</p>
+      <p className="font-display text-sm font-bold">{title}</p>
+      <p className="mt-1 text-xs leading-snug text-ink-2">{body}</p>
     </div>
   )
 }

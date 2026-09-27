@@ -608,7 +608,20 @@ function listRuns(args) {
 
 // ---------- JSON-RPC over stdio ----------
 
-const send = (msg) => process.stdout.write(JSON.stringify(msg) + '\n')
+// A large response does not fit the pipe buffer in one go, and process.exit() truncates whatever is
+// still pending. So writes are counted and the process only leaves once they have drained: twelve
+// leads went through and eighty came back as "engine gave no answer" until this was tracked.
+let pendingWrites = 0
+
+const send = (msg) => {
+  pendingWrites++
+  const flushed = process.stdout.write(JSON.stringify(msg) + '\n', () => {
+    pendingWrites--
+    maybeExit()
+  })
+  // Nothing to do when it flushed synchronously: the callback still runs, on the next tick.
+  return flushed
+}
 
 const ok = (id, result) => send({ jsonrpc: '2.0', id, result })
 const fail = (id, code, message) => send({ jsonrpc: '2.0', id, error: { code, message } })
@@ -661,7 +674,7 @@ let inFlight = 0
 let stdinClosed = false
 
 const maybeExit = () => {
-  if (stdinClosed && inFlight === 0) process.exit(0)
+  if (stdinClosed && inFlight === 0 && pendingWrites === 0) process.exit(0)
 }
 
 let buffer = ''

@@ -6,10 +6,37 @@ Prenew challenge · tiimi antipöhinä
 
 ## Yhdellä lauseella
 
-**Yksi komento joka tuottaa CSV-tiedoston vaikuttajakandidaateista, ja jokaisella rivillä on
-perustelu miksi se on siellä.**
+**Tämä on engine, ei sovellus johon kirjaudutaan.** Moottori jossa on tieto-taito, ja te kytkette
+sen siihen mitä teillä jo on.
 
-Ei sovellusta johon kirjaudutaan, ei uutta työnkulkua, ei palvelua jota joku muu ylläpitää.
+Sanoitte ettette halua erillistä työkalua eikä uutta työnkulkua. Tämä ei ole kumpaakaan. Kolme
+reittiä, ja valitsette itse:
+
+```
+                          ┌──▶ 1. MCP
+                          │       teidän agenttiprosessinne kysyy kandidaatteja suoraan
+                          │
+   ENGINE ────────────────┼──▶ 2. Oma järjestelmä
+   pisteytys + perustelu  │       CSV ja JSON ulos, ajastettuna. Ei mitään uutta opeteltavaa.
+   42 kenttää per tekijä  │
+                          └──▶ 3. Kytkettynä yhteydenottoon
+                                  löydöt siirtyvät briiffi mukanaan, ja tulokset
+                                  valuvat takaisin teidän järjestelmäänne
+                                            │
+                                            └──▶ takaisin engineen: rajat lasketaan uudelleen
+```
+
+Kolmas on **valinnainen eikä kuulu haasteeseen** — sanoitte että outreach on teidän omien
+automaatioidenne asia, ja kaikki muu tässä dokumentissa toimii ilman sitä.
+
+Mutta siitä seuraa yksi asia joka kannattaa sanoa ääneen:
+
+> **"Emme saa kontaktoitua vaikuttajia" ei ole enää syy.** Ei ensi kuussa vaan tänään. Listalla on
+> 130 tekijää joilla on sähköpostiosoite tiedossa, ja luovutus yhteydenottoon on yksi kutsu.
+
+Ja se kannattaa tehdä samantien, koska se on teidän etu: YouTuben ehdot eivät anna säilyttää dataa
+yli 30 päivää, ja tekijä kasvaa hinta-alueen yli omalla tahdillaan. Tästä enemmän kohdassa
+*Miksi tämä on tuoretavaraa*.
 
 ---
 
@@ -186,6 +213,44 @@ mainitsitte ettette oikeastaan dokumentoi huonoja diilejä, tämä on se mekanis
 dokumentoinnista sivutuotteen eikä erillistä työtä.
 
 Palvelin ei lähetä mitään kenellekään. Se etsii.
+
+---
+
+## Miksi tämä on tuoretavaraa
+
+Sanoitte että kone on varastossa keskimäärin viikon. Sama periaate pätee tähän listaan, eikä se ole
+vertauskuva vaan sääntö.
+
+**YouTuben Developer Policies III.E.4.d:** muuta kuin valtuutettua API-dataa saa säilyttää
+*"not longer than 30 calendar days"*. **III.E.4.c:** 30 päivän jälkeen data on joko poistettava tai
+haettava uudelleen. Pysyvä tekijätietokanta ei siis ole vaihtoehto, eikä se ole tämän ratkaisun
+puute vaan sen muoto.
+
+Siksi moottori säilyttää pysyvästi vain kaksi asiaa:
+
+- **Yksisuuntaisen tiivisteen** siitä kuka on jo nähty. Tiiviste ei ole YouTube-dataa eikä palaudu
+  tunnukseksi — se osaa vastata vain kysymykseen onko tämä nähty aiemmin.
+- **Teidän oman tulosdatanne.** Se on teidän, ei YouTuben.
+
+Kaikki mittarit haetaan uudelleen joka ajossa, ja välimuisti vanhenee 30 päivässä itsestään.
+
+Tästä seuraa kaksi käytännön asiaa:
+
+**Ajastus toimii.** Kirjanpito tietää kuka on jo nähty, joten viikoittainen ajo tuottaa vain uudet
+tekijät eikä toista samaa tuhatta riviä. Ensimmäinen ajo raportoi 1 002 uutta, heti perään ajettu
+toinen nolla.
+
+**Ja kiire on mitattavissa.** Teidän oma hylkäysdatanne sanoo että yli 110 000 tilaajan kohdalla joku
+ehti jo ensin, mikä tekee koosta kellon. Kysymys ei ole onko tekijä oikean kokoinen nyt, vaan kuinka
+kauan hän pysyy sellaisena.
+
+| Signaali | Määrä | Mitä se tarkoittaa |
+|---|---|---|
+| **Nousukiito** | 50 | Tavoittaa jo enemmän ihmisiä kuin sillä on tilaajia, ja kasvaa. Mitattu, ei ennustettu. |
+| **Kiinnitä nyt** | 6 | Nykytahdilla ylittää rajan alle vuodessa. Arvio kanavan omasta kasvuvauhdista. |
+
+Kone joka on viikon varastossa on liikkuvaa vaihto-omaisuutta. Kone joka on kuusi kuukautta
+varastossa on tappio. Löydetty tekijä käyttäytyy täsmälleen samoin.
 
 ---
 

@@ -108,8 +108,11 @@ export function leadFor(r) {
     ...(r.email ? { email: r.email } : {}),
     jobTitle: `YouTube-sisällöntuottaja${r.nicheLabel && r.nicheLabel !== 'Tuntematon' ? ` · ${r.nicheLabel}` : ''}`,
     analysis: analysisFor(r),
-    // Where a human verifies the claim in one click.
-    mediaLinkUrl: r.url,
+    // The channel's own avatar, linking to the channel. A person approving the draft recognises a
+    // creator by their picture faster than by their name, and both are public https URLs already in
+    // the record. The picture has to be sent with the link: an outreach engine rejects a link on its
+    // own, because there is nothing to hang it on.
+    ...(r.thumb ? { mediaImageUrl: r.thumb, mediaLinkUrl: r.url, mediaAlt: `${r.title} YouTubessa` } : {}),
   }
 }
 
