@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Creator } from '../types'
 import { asRequest, type Criteria } from './criteria'
+import { leadFor } from '../lead'
 import { countryName } from './countries'
 
 const f = (n: number) => n.toLocaleString('fi-FI')
@@ -166,9 +167,39 @@ const STEPS = [
   { n: '4', title: 'Selda', desc: 'Luonnos odottaa hyväksyntää. Ei lähetä itse.' },
 ]
 
+type Draft = { leadId: string; company?: string; email?: string | null; subject?: string; body?: string; error?: string }
+
 export function SeldaTab({ rows }: { rows: Creator[] }) {
   const handover = rows.filter((c) => !c.known && !c.rejected && !c.competitor)
-  const withEmail = handover.filter((c) => c.email).length
+  const [picked, setPicked] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ drafts: Draft[]; runId: string | null; note: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Default to the top few with an address: a handover nobody can act on is not a demonstration.
+  const suggested = handover.filter((c) => c.email).slice(0, 5)
+  const chosen = picked.length ? handover.filter((c) => picked.includes(c.id)) : suggested
+
+  async function send() {
+    if (busy || !chosen.length) return
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    try {
+      const r = await fetch('/api/selda', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leads: chosen.map(leadFor) }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Siirto epäonnistui')
+      setResult(d)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Siirto epäonnistui')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <section className="flex max-w-[1100px] flex-col gap-8 sm:gap-12">
@@ -193,17 +224,95 @@ export function SeldaTab({ rows }: { rows: Creator[] }) {
         ))}
       </div>
 
-      <div className="rounded-brand-lg border border-line p-6">
-        <p className="text-[17px] text-ink-2">
-          Nykyisillä kriteereillä siirtyisi <strong className="font-semibold text-ink">{f(handover.length)} tekijää</strong>,
-          joista {f(withEmail)}:llä on sähköpostiosoite tiedossa. Rajattu pois: nykyiset kumppanit,
-          aiemmin hylätyt ja kilpailijaa mainostavat.
-        </p>
-        <p className="mt-3 text-base text-ink-3">
-          Siirto on yksi kutsu, ja ratkaiseva kenttä on <code className="font-mono">analysis</code> —
-          moottorin perustelu on se tutkimus josta avausviesti kirjoitetaan.
-        </p>
+      {/* ---------- pick, then hand over for real ---------- */}
+      <div className="flex flex-col gap-4 rounded-brand-lg border border-line p-5 sm:p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl font-bold">Siirrettävät</h2>
+          <span className="text-base text-ink-3">
+            {f(handover.length)} kelpaa siirtoon · nykyiset kumppanit, aiemmin hylätyt ja
+            kilpailijaa mainostavat rajattu pois
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          {handover.slice(0, 12).map((c) => {
+            const on = picked.length ? picked.includes(c.id) : suggested.some((s) => s.id === c.id)
+            return (
+              <label
+                key={c.id}
+                className="flex cursor-pointer flex-wrap items-center gap-3 rounded-brand-md bg-surface px-3 py-2 text-[15px]"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() =>
+                    setPicked((p) => {
+                      const base = p.length ? p : suggested.map((s) => s.id)
+                      return base.includes(c.id) ? base.filter((x) => x !== c.id) : [...base, c.id]
+                    })
+                  }
+                  className="h-4 w-4 accent-[var(--color-forest)]"
+                />
+                <span className="font-semibold">{c.title}</span>
+                <span className="text-ink-3">{countryName(c.country)} · {c.nicheLabel}</span>
+                <span className="nums text-ink-3">{f(c.subs)} tilaajaa</span>
+                <span className="ml-auto text-ink-3">{c.email || 'ei sähköpostia'}</span>
+              </label>
+            )
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            onClick={send}
+            disabled={busy || !chosen.length}
+            className="h-12 cursor-pointer rounded-brand-md bg-forest px-5 font-display text-[15px] font-semibold text-white transition-colors hover:bg-[#1b5a3d] disabled:opacity-40"
+          >
+            {busy ? 'Siirretään ja kirjoitetaan luonnokset…' : `Siirrä ${chosen.length} Seldaan`}
+          </button>
+          <span className="text-base text-ink-3">
+            Luo kampanjan, hakee yhteystiedot ja kirjoittaa luonnoksen. Ei lähetä mitään.
+          </span>
+        </div>
+
+        {error && <p className="text-[15px] text-critical">{error}</p>}
       </div>
+
+      {/* ---------- and back again ---------- */}
+      {result && (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="font-display text-xl font-bold">Luonnokset takaisin</h2>
+            <span className="text-base text-ink-3">{result.note}</span>
+          </div>
+
+          {result.drafts.map((d) => (
+            <div key={d.leadId} className="rounded-brand-lg border border-line bg-surface p-5">
+              {d.error ? (
+                <p className="text-[15px] text-critical">{d.company || d.leadId}: {d.error}</p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-baseline gap-3">
+                    <span className="font-display text-lg font-bold">{d.company}</span>
+                    <span className="text-base text-ink-3">{d.email}</span>
+                    <span className="ml-auto rounded-brand bg-mint-20 px-2 py-1 text-[13px] font-semibold text-ink">
+                      odottaa hyväksyntää
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[15px] font-semibold">{d.subject}</p>
+                  <p className="mt-2 text-[15px] leading-[1.6] whitespace-pre-wrap text-ink-2">{d.body}</p>
+                </>
+              )}
+            </div>
+          ))}
+
+          <p className="text-base leading-relaxed text-ink-2">
+            Jokainen näistä on kirjoitettu siitä mitä moottori mittasi juuri kyseisestä kanavasta,
+            ei mallipohjasta. Sama teksti odottaa hyväksyntää Seldan puolella, ja lähetys on
+            ihmisen painallus.
+          </p>
+        </div>
+      )}
     </section>
   )
 }

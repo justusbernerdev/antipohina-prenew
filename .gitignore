@@ -18,3 +18,4 @@ web/next-env.d.ts
 data/seen.json
 data/runs.jsonl
 data/quota.json
+.vercel
