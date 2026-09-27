@@ -29,7 +29,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fi">
       <body className={`${sora.variable} ${titillium.variable} antialiased`}>
-        <ClerkProvider appearance={{ variables: { colorPrimary: '#256f50' } }}>
+        {/* Prenew's own values, so the form reads as part of the page rather than bolted onto it.
+            Radii stay in their 0.25rem–1.5rem range. */}
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: '#256f50',
+              colorPrimaryForeground: '#ffffff',
+              colorBackground: '#ffffff',
+              colorForeground: '#1d1d35',
+              colorMutedForeground: '#565668',
+              colorInput: '#ffffff',
+              colorInputForeground: '#1d1d35',
+              colorBorder: '#e2e2ee',
+              colorRing: '#0a74ff',
+              colorDanger: '#d32f26',
+              borderRadius: '0.25rem',
+              fontFamily: 'var(--font-titillium), ui-sans-serif, system-ui, sans-serif',
+            },
+            elements: {
+              card: 'shadow-none border border-line',
+              rootBox: 'w-full',
+              cardBox: 'w-full shadow-none',
+              headerTitle: 'hidden',
+              headerSubtitle: 'hidden',
+            },
+          }}
+        >
           <nav className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3 sm:px-8">
               <span className="font-display text-sm font-bold tracking-tight">
