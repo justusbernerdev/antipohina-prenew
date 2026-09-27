@@ -92,6 +92,21 @@ let engagedCommentRate = 0.23
 // Creators aimed at under-13s. Excluded by request; teenagers are explicitly wanted.
 const EXCLUDE_KIDS = !process.argv.includes('--include-kids')
 
+// Search queries per thin market. Off by default because search costs 100 quota units against a
+// 10 000 daily budget, which is a hundred times an id-based call and the reason this pipeline
+// avoids it everywhere else.
+//
+// It exists because for some markets the chart route is structurally broken, not merely weak.
+// Estonia's gaming chart holds 27 videos and not one Estonian creator: fifteen are international
+// (MrBeast, IShowSpeed, Grian) and twelve are Russian. Expanding from it reaches what Estonians
+// watch, never what Estonians make. Measured: the chart route found one Estonian creator in 96 233
+// fetched channels; four Estonian-language searches found eight, for 404 units.
+//
+// The searches only buy SEEDS. Expansion from them is the same cheap commenter route as everywhere
+// else, so the expensive call is made once per market and the tail comes free.
+const SEARCH_PER_MARKET = Number(arg('search', 0))
+const MIN_LOCAL_SEEDS = Number(arg('min-local-seeds', 5))
+
 // Videos read per channel to measure recent performance. playlistItems costs one unit for up to
 // 50 ids and videos.list one unit for up to 50 ids, so 20 costs exactly what 10 costs. More
 // videos means a usable trend (10 newer vs 10 older) and a far better niche reading.
@@ -381,6 +396,28 @@ const COMPETITOR = /\b(mifcom|dubaro|memorypc|memory pc|one\.de|alternate|mindfa
 // distinction is visible instead of buried in one penalty.
 const HARDWARE_SPONSOR = /\b(corsair|nzxt|hyperx|razer|logitech|steelseries|asus|rog\b|msi|gigabyte|be quiet|noctua|cooler master|thermaltake|kingston|crucial|seagate|western digital|\bwd\b|lian li|endgame gear|glorious|turtle beach)\b/i
 
+// Local-language queries, because a market's own creators write in their own language. The terms
+// are deliberately plain: the verb for "playing", the country adjective, and the two games that
+// dominate Prenew's own collaborations.
+const LOCAL_QUERIES = {
+  EE: ['minecraft eesti', 'mängime', 'eesti gaming', 'fortnite eesti keeles'],
+  LV: ['minecraft latviski', 'spēlējam', 'latviešu gaming', 'fortnite latviski'],
+  LT: ['minecraft lietuviškai', 'žaidžiam', 'lietuviškas gaming', 'fortnite lietuviškai'],
+  FI: ['minecraft suomeksi', 'pelataan', 'suomalainen pelikanava'],
+  SE: ['minecraft på svenska', 'vi spelar', 'svensk gaming'],
+  DK: ['minecraft på dansk', 'vi spiller', 'dansk gaming'],
+  NL: ['minecraft nederlands', 'we spelen', 'nederlandse gaming'],
+  HU: ['minecraft magyarul', 'játszunk', 'magyar gaming'],
+  PL: ['minecraft po polsku', 'gramy', 'polski gaming'],
+  DE: ['minecraft deutsch', 'wir spielen', 'deutscher gaming kanal'],
+  FR: ['minecraft en français', 'on joue', 'chaîne gaming française'],
+}
+
+const MARKET_LANG = {
+  EE: 'et', LV: 'lv', LT: 'lt', FI: 'fi', SE: 'sv', DK: 'da',
+  NL: 'nl', HU: 'hu', PL: 'pl', DE: 'de', FR: 'fr',
+}
+
 // ---------- 1. seeds: per-country gaming charts ----------
 
 async function gamingCategoryId(region) {
@@ -538,6 +575,78 @@ stage('Siemeniä laajennukseen', seeds.length,
 console.log(`Expansion seeds: ${seeds.length}${WANT.length ? ` (niche: ${WANT.join(',')})` : ''}`)
 if (seedFallbacks.length) {
   console.log(`  ei nichen mukaista siementä listalla: ${seedFallbacks.join(', ')} — laajennettu muista pelitekijöistä`)
+}
+
+// ---------- 2b. rescue a thin market with a local-language search ----------
+//
+// Only runs where the chart route genuinely failed to produce local seeds, and only when asked for
+// with --search. Each query costs 100 units, so the spend is stated in the log rather than buried.
+let searchUnits = 0
+const rescued = []
+
+if (SEARCH_PER_MARKET > 0) {
+  for (const market of MARKETS) {
+    // Appearing on a market's chart is not the same as being from it. Estonia's chart is made of
+    // international and Russian channels, and counting those as local seeds is exactly why the
+    // gap went unnoticed: the market looked served while every seed pointed somewhere else.
+    const lang = MARKET_LANG[market] || 'zz'
+    const local = seeds.filter(
+      (r) =>
+        r.markets.includes(market) &&
+        (r.channelCountry === market || (r.channelLang || '').startsWith(lang) || (r.langs || []).some((l) => String(l).startsWith(lang))),
+    ).length
+    if (local >= MIN_LOCAL_SEEDS) continue
+    console.log(`  ${market}: vain ${local} paikallista siementä listalta, haetaan lisää`)
+
+    const queries = (LOCAL_QUERIES[market] || []).slice(0, SEARCH_PER_MARKET)
+    if (!queries.length) continue
+
+    const ids = new Set()
+    for (const q of queries) {
+      if (units >= BUDGET - 300) break
+      try {
+        const r = await api('search', {
+          part: 'snippet', type: 'channel', q, regionCode: market,
+          relevanceLanguage: MARKET_LANG[market] || '', maxResults: 50,
+        })
+        // search costs 100 units, not the 1 the counter assumed
+        units += 99
+        searchUnits += 100
+        for (const it of r.items || []) {
+          const id = it.snippet?.channelId || it.id?.channelId
+          if (id && !discovered.has(id)) ids.add(id)
+        }
+      } catch (e) {
+        console.log(`  haku "${q}" (${market}) epäonnistui: ${e.message}`)
+      }
+    }
+    if (!ids.size) continue
+
+    const fetched = await channelsByIds([...ids])
+    let kept = 0
+    for (const c of fetched) {
+      // Only creators the market can actually claim. A search pinned to a region still returns
+      // plenty of international channels, and adding those would undo the point of the market.
+      const isLocal =
+        c.snippet.country === market ||
+        (c.snippet.defaultLanguage || '').startsWith(MARKET_LANG[market] || 'zz')
+      if (!isLocal) continue
+      const rec = record(c, 'chart', { markets: new Set([market]), langs: new Set([MARKET_LANG[market]]) })
+      if (rec.sideChannel || rec.videos < MIN_VIDEOS || rec.subs < 500) continue
+      note(c.id, 'chart', market, MARKET_LANG[market])
+      candidates.set(c.id, rec)
+      if (rec.subs >= MIN_SUBS) { seeds.push(rec); kept++ }
+    }
+    rescued.push({ market, queries: queries.length, seeds: kept, candidates: fetched.length })
+  }
+
+  if (rescued.length) {
+    console.log(`\nPaikallishaku ohuille markkinoille (${searchUnits} yksikköä):`)
+    for (const r of rescued) {
+      console.log(`  ${r.market}: ${r.queries} hakua, ${r.candidates} kanavaa, ${r.seeds} uutta siementä`)
+    }
+    console.log('')
+  }
 }
 
 // ---------- 3. expansion: commenters ----------
