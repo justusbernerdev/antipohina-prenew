@@ -133,6 +133,7 @@ export type Targeted = {
     email: string | null
     reason: string
   }[]
+  creators: Creator[]
 }
 
 export type Data = {

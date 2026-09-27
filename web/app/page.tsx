@@ -211,7 +211,20 @@ export default function Page() {
         title="Lista"
         lead="Jokainen rivi selittää itsensä. Se on se ero niihin alustoihin jotka eivät teille toimineet, ja se on myös ainoa tapa jolla lista on tarkistettavissa yhdellä silmäyksellä."
       >
-        {bounds && <Explorer creators={d.creators} bounds={bounds} />}
+        {bounds && (
+          <Explorer
+            creators={d.creators}
+            bounds={bounds}
+            targeted={
+              targeted?.creators?.length
+                ? {
+                    label: `${targeted.request?.markets.join(',')} · ${targeted.request?.niches.join('+')}`,
+                    creators: targeted.creators,
+                  }
+                : null
+            }
+          />
+        )}
       </Section>
 
       {/* ---------- bounds and their basis ---------- */}

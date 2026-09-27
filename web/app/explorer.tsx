@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import type { Bounds, Creator } from './types'
+import { apply, EMPTY, PRESETS, SORTS, type FilterState, type SortKey } from './filters'
+import { analysisFor, leadFor } from './lead'
 
 const fmt = (n: number) => n.toLocaleString('fi-FI')
 
@@ -43,121 +45,113 @@ function takenZoneFrom(bounds: Bounds, recorded: Recorded[]) {
   return subs.length ? Math.min(...subs) : 110_000
 }
 
-const NATIONALITY: Record<string, string> = {
-  FI: 'suomalainen', SE: 'ruotsalainen', DE: 'saksalainen', EE: 'virolainen', HU: 'unkarilainen',
-  LV: 'latvialainen', LT: 'liettualainen', PL: 'puolalainen', DK: 'tanskalainen',
-  NL: 'hollantilainen', FR: 'ranskalainen',
+// The columns a human gets when they export a selection. Akseli said a CSV is all they need, so
+// the selection has to leave as one, not only as the JSON an outreach engine wants.
+const CSV_COLS: [string, (c: Creator) => string | number][] = [
+  ['pisteet', (c) => c.score],
+  ['kanava', (c) => c.title],
+  ['url', (c) => c.url],
+  ['maa', (c) => c.country || ''],
+  ['maan_varmuus', (c) => c.countryConfidence],
+  ['kieli', (c) => c.lang || ''],
+  ['niche', (c) => c.nicheLabel],
+  ['pelit', (c) => c.games.join(' | ')],
+  ['tilaajat', (c) => c.subs],
+  ['katselut_per_video', (c) => c.avgViews ?? ''],
+  ['katselut_per_tilaaja', (c) => c.viewRatio ?? ''],
+  ['trendi', (c) => c.trend || ''],
+  ['trendi_pros', (c) => c.trendPct ?? ''],
+  ['tilaajaa_per_kk', (c) => c.subsPerMonth ?? ''],
+  ['videoita_per_kk', (c) => c.uploadsPerMonth ?? ''],
+  ['pv_edellisesta', (c) => c.daysSinceUpload ?? ''],
+  ['lyhytvideo_osuus', (c) => (c.shortsShare != null ? `${c.shortsShare} %` : '')],
+  ['kommentti_pros', (c) => c.commentRate ?? ''],
+  ['alustat', (c) => c.platforms.join(' | ')],
+  ['yhteystieto', (c) => c.email || ''],
+  ['yhteystieto_business', (c) => c.emailBusiness || ''],
+  ['puhuu_laitteistosta', (c) => (c.rigTalk ? 'kyllä' : '')],
+  ['vanhempien_valinta', (c) => (c.parentsChoice ? 'kyllä' : '')],
+  ['nousukiito', (c) => (c.breakingOut ? 'kyllä' : '')],
+  ['kiinnita_nyt', (c) => (c.signNow ? 'kyllä' : '')],
+  ['loytyi', (c) => (c.via === 'chart' ? 'maalista' : 'kommentoija')],
+  ['perustelu', (c) => c.reason],
+  ['lopputulos', () => ''],
+  ['hylkayssyy', () => ''],
+  ['tilauksia', () => ''],
+]
+
+const esc = (v: string | number) => {
+  const s = String(v ?? '')
+  return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-// The same analysis text scripts/to-selda.mjs writes, so what the screen promises is what the file
-// delivers. Selda composes the opening message from this field rather than crawling the channel.
-function analysisFor(r: Creator) {
-  const s: string[] = []
-  const who = r.country
-    ? `${NATIONALITY[r.country] || `${r.country}-maalainen`} YouTube-tekijä`
-    : 'YouTube-tekijä, maa ei varmistunut'
-  s.push(
-    `${r.title} on ${who}, ${fmt(r.subs)} tilaajaa ja ${r.avgViews != null ? `${fmt(r.avgViews)} katselua per video` : 'katselutieto puuttuu'}${r.viewWindow ? ` (${r.viewWindow} ikkuna)` : ''}.`,
-  )
-  if (r.nicheLabel && r.nicheLabel !== 'Tuntematon') {
-    const extra = r.games.slice(1, 3)
-    s.push(`Sisältö: ${r.nicheLabel}${extra.length ? ` (myös ${extra.join(' ja ')})` : ''}.`)
-  }
-  if (r.viewRatio) {
-    s.push(
-      `Yleisö on aktiivinen: video tavoittaa ${Math.round(r.viewRatio * 100)} % tilaajamäärästä, ja kanava julkaisee ${r.uploadsPerMonth ?? '?'} videota kuussa${r.daysSinceUpload != null ? `, edellisestä ${r.daysSinceUpload} päivää` : ''}.`,
-    )
-  }
-  if (r.breakingOut) {
-    s.push(
-      `Tämä on nousukiidossa: tavoittaa enemmän ihmisiä kuin sillä on tilaajia ja katselut kasvavat ${r.trendPct} %. Nyt se on vielä ${fmt(r.subs)} tilaajan kokoinen.`,
-    )
-  } else if (r.signNow && r.subsPerMonth != null) {
-    s.push(
-      `Kasvaa noin ${fmt(r.subsPerMonth)} tilaajaa kuussa, eli arviolta ${r.monthsToBound} kuukautta siihen kokoon jossa Prenewin oman datan mukaan tekijät ovat yleensä jo varattuja.`,
-    )
-  }
-  if (r.rigTalk) {
-    s.push(
-      'Tekijä luettelee oman kokoonpanonsa kanavan tiedoissa, eli puhuu laitteistosta jo nyt omasta aloitteestaan. Kone ei ole hänen kanavallaan väkinäinen aihe.',
-    )
-  }
-  if (r.parentsChoice) {
-    s.push(
-      'Kanava on merkitty lapsiystävälliseksi tekijän omin sanoin, eli vanhempi on yleisössä. Tämä osuu Prenewin Vanhempien valinta -kategoriaan.',
-    )
-  }
-  const others = r.platforms.filter((p) => p !== 'youtube')
-  if (others.length) s.push(`Myös muilla alustoilla: ${others.join(', ')}.`)
-  s.push(`Löytyi ${r.via === 'commenter' ? 'kommentoijareitistä, eli ei ole vaikuttaja-alustoilla löydettävissä' : 'maakohtaiselta pelilistalta'}.`)
-  s.push(`Pisteytys ${r.score}. Perustelu koneelta: ${r.reason}`)
-  return s.join(' ')
+function download(name: string, body: string, type: string) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([body], { type }))
+  a.download = name
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
 
-export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bounds }) {
-  const [route, setRoute] = useState<'all' | 'commenter' | 'chart'>('all')
-  const [country, setCountry] = useState('all')
-  const [niche, setNiche] = useState('all')
-  const [size, setSize] = useState<'all' | 'under10' | 'under50' | 'range'>('all')
-  const [contact, setContact] = useState(false)
-  const [rising, setRising] = useState(false)
-  const [urgent, setUrgent] = useState(false)
-  const [parents, setParents] = useState(false)
+export function Explorer({
+  creators,
+  bounds,
+  targeted,
+}: {
+  creators: Creator[]
+  bounds: Bounds
+  targeted?: { label: string; creators: Creator[] } | null
+}) {
+  const [run, setRun] = useState<'broad' | 'targeted'>('broad')
+  const [f, setF] = useState<FilterState>(EMPTY)
+  const [sort, setSort] = useState<SortKey>('score')
+  const [more, setMore] = useState(false)
   const [limit, setLimit] = useState(40)
   const [recorded, setRecorded] = useState<Recorded[]>([])
   const [open, setOpen] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [campaign, setCampaign] = useState(false)
 
+  const source = run === 'targeted' && targeted ? targeted.creators : creators
+
+  const set = (patch: Partial<FilterState>) => setF((prev) => ({ ...prev, ...patch }))
+
   const countries = useMemo(
-    () => [...new Set(creators.map((c) => c.country).filter(Boolean))].sort() as string[],
-    [creators],
+    () => [...new Set(source.map((c) => c.country).filter(Boolean))].sort() as string[],
+    [source],
+  )
+  const langs = useMemo(
+    () => [...new Set(source.map((c) => c.lang).filter(Boolean))].sort() as string[],
+    [source],
   )
   const niches = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const c of creators) counts.set(c.nicheLabel, (counts.get(c.nicheLabel) || 0) + 1)
+    for (const c of source) counts.set(c.nicheLabel, (counts.get(c.nicheLabel) || 0) + 1)
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
-  }, [creators])
+  }, [source])
 
-  const filtered = useMemo(
-    () =>
-      creators.filter((c) => {
-        if (route !== 'all' && c.via !== route) return false
-        if (country !== 'all' && c.country !== country) return false
-        if (niche !== 'all' && c.nicheLabel !== niche) return false
-        if (contact && !c.email) return false
-        if (rising && c.trend !== 'nouseva') return false
-        if (urgent && !c.breakingOut && !c.signNow) return false
-        if (parents && !c.parentsChoice) return false
-        if (size === 'under10' && c.subs >= 10_000) return false
-        if (size === 'under50' && c.subs >= 50_000) return false
-        if (size === 'range' && (c.subs < 4000 || c.subs > 250_000)) return false
-        return true
-      }),
-    [creators, route, country, niche, size, contact, rising, urgent, parents],
-  )
+  const filtered = useMemo(() => apply(source, f, sort), [source, f, sort])
+
+  const activeCount = useMemo(() => {
+    let n = 0
+    for (const [k, v] of Object.entries(f)) {
+      const base = EMPTY[k as keyof FilterState]
+      if (v !== base) n++
+    }
+    return n
+  }, [f])
 
   const currentZone = takenZoneFrom(bounds, recorded)
   const zoneMoved = currentZone !== bounds.takenZone
 
-  const selectedCreators = useMemo(
-    () => creators.filter((c) => selected.has(c.id)),
-    [creators, selected],
-  )
+  const selectedCreators = useMemo(() => source.filter((c) => selected.has(c.id)), [source, selected])
+  const withEmail = selectedCreators.filter((c) => c.email).length
 
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
-      return next
-    })
-  }
-
-  function selectAllVisible() {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      for (const c of filtered.slice(0, limit)) next.add(c.id)
       return next
     })
   }
@@ -172,86 +166,212 @@ export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bo
 
   const recordedFor = (title: string) => recorded.find((r) => r.channel === title) || null
 
-  // The exact payload Selda's selda_add_leads takes. Built in the browser from the rows on screen,
-  // so what is downloaded is what was selected.
-  const payload = {
-    leads: selectedCreators.map((c) => ({
-      firstName: c.title,
-      lastName: '',
-      company: c.title,
-      ...(c.email ? { email: c.email } : {}),
-      jobTitle: `YouTube-sisällöntuottaja${c.nicheLabel !== 'Tuntematon' ? ` · ${c.nicheLabel}` : ''}`,
-      analysis: analysisFor(c),
-      mediaLinkUrl: c.url,
-    })),
-  }
-
-  function download() {
-    const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `prenew-kampanja-${selectedCreators.length}-tekijaa.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
-
-  const withEmail = selectedCreators.filter((c) => c.email).length
+  const payload = { leads: selectedCreators.map(leadFor) }
 
   return (
     <section>
-      {/* ---------- filters: one row, no settings panel ---------- */}
-      <div className="sticky top-[49px] z-10 -mx-5 mb-5 border-y border-line bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+      {/* ---------- which run ---------- */}
+      {targeted && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-semibold text-ink-3">Ajo:</span>
           <Seg
-            value={route}
-            onChange={setRoute}
+            value={run}
+            onChange={(v) => {
+              setRun(v)
+              setSelected(new Set())
+              setLimit(40)
+            }}
             options={[
-              ['all', 'Kaikki'],
-              ['commenter', 'Kommentoija'],
-              ['chart', 'Maalista'],
+              ['broad', `Laaja (${fmt(creators.length)})`],
+              ['targeted', `${targeted.label} (${fmt(targeted.creators.length)})`],
             ]}
           />
+        </div>
+      )}
 
-          <Select value={country} onChange={setCountry} label="Maa">
-            <option value="all">Maa: kaikki</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
+      {/* ---------- presets: the questions people actually ask ---------- */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            title={p.hint}
+            onClick={() => {
+              setF({ ...EMPTY, ...p.patch })
+              if (p.sort) setSort(p.sort)
+              setLimit(40)
+            }}
+            className="cursor-pointer rounded-brand-md border border-line-strong bg-surface-2 px-2.5 py-1.5 text-xs font-semibold text-ink-2 transition-colors hover:border-forest hover:bg-forest-10 hover:text-forest"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ---------- search, sort, filters ---------- */}
+      <div className="sticky top-[49px] z-10 -mx-5 mb-5 border-y border-line bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <input
+            value={f.q}
+            onChange={(e) => {
+              set({ q: e.target.value })
+              setLimit(40)
+            }}
+            placeholder="Hae nimestä, nichestä, pelistä tai perustelusta…"
+            className="h-9 min-w-[240px] flex-1 rounded-brand-md border border-line-strong bg-surface-2 px-3 text-xs text-ink placeholder:text-ink-3"
+          />
+
+          <Select value={sort} onChange={(v) => setSort(v as SortKey)} label="Järjestys">
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
               </option>
             ))}
           </Select>
 
-          <Select value={niche} onChange={setNiche} label="Niche">
-            <option value="all">Niche: kaikki</option>
-            {niches.map(([n, count]) => (
-              <option key={n} value={n}>
-                {n} ({count})
-              </option>
-            ))}
-          </Select>
+          <button
+            onClick={() => setMore(!more)}
+            className="cursor-pointer rounded-brand-md border border-line-strong bg-surface-2 px-2.5 py-1.5 font-semibold text-ink-2 transition-colors hover:text-ink"
+          >
+            Suodattimet {activeCount > 0 && <span className="text-forest">({activeCount})</span>}
+          </button>
 
-          <Select value={size} onChange={(v) => setSize(v as typeof size)} label="Koko">
-            <option value="all">Koko: kaikki</option>
-            <option value="under10">alle 10k</option>
-            <option value="under50">alle 50k</option>
-            <option value="range">4k–250k</option>
-          </Select>
-
-          <Toggle on={contact} onClick={() => setContact(!contact)}>
-            Yhteystieto
-          </Toggle>
-          <Toggle on={rising} onClick={() => setRising(!rising)}>
-            Nousussa
-          </Toggle>
-          <Toggle on={urgent} onClick={() => setUrgent(!urgent)}>
-            Kiire
-          </Toggle>
-          <Toggle on={parents} onClick={() => setParents(!parents)}>
-            Vanhempien valinta
-          </Toggle>
+          {activeCount > 0 && (
+            <button
+              onClick={() => {
+                setF(EMPTY)
+                setLimit(40)
+              }}
+              className="cursor-pointer text-ink-3 underline hover:text-ink"
+            >
+              Tyhjennä
+            </button>
+          )}
 
           <span className="nums ml-auto font-semibold text-ink-2">{fmt(filtered.length)} tekijää</span>
         </div>
+
+        {more && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs">
+            <Seg
+              value={f.route}
+              onChange={(v) => set({ route: v })}
+              options={[
+                ['all', 'Kaikki'],
+                ['commenter', 'Kommentoija'],
+                ['chart', 'Maalista'],
+              ]}
+            />
+
+            <Select value={f.country} onChange={(v) => set({ country: v })} label="Maa">
+              <option value="all">Maa: kaikki</option>
+              {countries.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+
+            <Select value={f.lang} onChange={(v) => set({ lang: v })} label="Kieli">
+              <option value="all">Kieli: kaikki</option>
+              {langs.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+
+            <Select value={f.niche} onChange={(v) => set({ niche: v })} label="Niche">
+              <option value="all">Niche: kaikki</option>
+              {niches.map(([n, count]) => (
+                <option key={n} value={n}>
+                  {n} ({count})
+                </option>
+              ))}
+            </Select>
+
+            <Select value={f.size} onChange={(v) => set({ size: v as FilterState['size'] })} label="Koko">
+              <option value="all">Koko: kaikki</option>
+              <option value="under5">alle 5k</option>
+              <option value="under10">alle 10k</option>
+              <option value="under50">alle 50k</option>
+              <option value="range">4k–250k</option>
+              <option value="over110">yli 110k</option>
+            </Select>
+
+            <Select value={f.views} onChange={(v) => set({ views: v as FilterState['views'] })} label="Katselut">
+              <option value="all">Katselut: kaikki</option>
+              <option value="v5">yli 5 000</option>
+              <option value="v20">20 000 – 100 000</option>
+              <option value="v100">yli 100 000</option>
+            </Select>
+
+            <Select value={f.ratio} onChange={(v) => set({ ratio: v as FilterState['ratio'] })} label="Katselut per tilaaja">
+              <option value="all">Katselut/tilaaja: kaikki</option>
+              <option value="healthy">terve 15–200 %</option>
+              <option value="low">alle 15 %, kuollut</option>
+              <option value="suspect">yli 200 %, epäilyttävä</option>
+            </Select>
+
+            <Select
+              value={f.activity}
+              onChange={(v) => set({ activity: v as FilterState['activity'] })}
+              label="Aktiivisuus"
+            >
+              <option value="all">Aktiivisuus: kaikki</option>
+              <option value="d14">alle 14 pv edellisestä</option>
+              <option value="d30">alle 30 pv</option>
+              <option value="stale">yli 90 pv, hiljentynyt</option>
+            </Select>
+
+            <Select value={f.format} onChange={(v) => set({ format: v as FilterState['format'] })} label="Muoto">
+              <option value="all">Muoto: kaikki</option>
+              <option value="shorts">pääosin lyhytvideoita</option>
+              <option value="long">pääosin pitkiä</option>
+            </Select>
+
+            <label className="flex items-center gap-1.5 text-ink-2">
+              <span>Min. pisteet</span>
+              <input
+                type="range"
+                min={0}
+                max={140}
+                step={5}
+                value={f.minScore}
+                onChange={(e) => set({ minScore: Number(e.target.value) })}
+                className="w-24 accent-[var(--color-forest)]"
+              />
+              <span className="nums w-7 font-semibold">{f.minScore}</span>
+            </label>
+
+            <Toggle on={f.contact} onClick={() => set({ contact: !f.contact })}>
+              Yhteystieto
+            </Toggle>
+            <Toggle on={f.businessContact} onClick={() => set({ businessContact: !f.businessContact })}>
+              Business-osoite
+            </Toggle>
+            <Toggle on={f.certainCountry} onClick={() => set({ certainCountry: !f.certainCountry })}>
+              Maa varma
+            </Toggle>
+            <Toggle on={f.multiPlatform} onClick={() => set({ multiPlatform: !f.multiPlatform })}>
+              3+ alustaa
+            </Toggle>
+            <Toggle on={f.rising} onClick={() => set({ rising: !f.rising })}>
+              Nousussa
+            </Toggle>
+            <Toggle on={f.urgent} onClick={() => set({ urgent: !f.urgent })}>
+              Kiire
+            </Toggle>
+            <Toggle on={f.rigTalk} onClick={() => set({ rigTalk: !f.rigTalk })}>
+              Puhuu laitteistosta
+            </Toggle>
+            <Toggle on={f.parents} onClick={() => set({ parents: !f.parents })}>
+              Vanhempien valinta
+            </Toggle>
+            <Toggle on={f.hideSeen} onClick={() => set({ hideSeen: !f.hideSeen })}>
+              Piilota jo tunnetut
+            </Toggle>
+          </div>
+        )}
       </div>
 
       {/* ---------- the bound, and what it currently rests on ---------- */}
@@ -281,30 +401,47 @@ export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bo
             bounds.basis.takenZone
           )}
         </p>
-        {recorded.length > 0 && (
-          <p className="mt-2 border-t border-line pt-2 text-xs text-ink-3">
-            Kirjattu tässä istunnossa: {recorded.length}. Pysyväksi tämä menee moottorin{' '}
-            <code className="rounded-brand bg-surface-3 px-1 py-0.5 font-mono text-[11px]">record_outcome</code>{' '}
-            -kutsulla, joka laskee samat rajat uudelleen tiedostoon.
-          </p>
-        )}
       </div>
 
-      {/* ---------- the list ---------- */}
-      <div className="mb-2 flex items-center gap-3 text-xs">
-        <button onClick={selectAllVisible} className="cursor-pointer font-semibold text-blue underline">
+      <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+        <button
+          onClick={() =>
+            setSelected((prev) => {
+              const next = new Set(prev)
+              for (const c of filtered.slice(0, limit)) next.add(c.id)
+              return next
+            })
+          }
+          className="cursor-pointer font-semibold text-blue underline"
+        >
           Valitse näkyvät ({Math.min(limit, filtered.length)})
         </button>
         {selected.size > 0 && (
           <button
-            onClick={() => { setSelected(new Set()); setCampaign(false) }}
+            onClick={() => {
+              setSelected(new Set())
+              setCampaign(false)
+            }}
             className="cursor-pointer text-ink-3 underline hover:text-ink"
           >
             Tyhjennä valinta
           </button>
         )}
+        <button
+          onClick={() =>
+            download(
+              `prenew-${filtered.length}-tekijaa.csv`,
+              [CSV_COLS.map(([h]) => h).join(','), ...filtered.map((c) => CSV_COLS.map(([, g]) => esc(g(c))).join(','))].join('\n'),
+              'text/csv;charset=utf-8',
+            )
+          }
+          className="ml-auto cursor-pointer font-semibold text-forest underline"
+        >
+          Lataa nämä {fmt(filtered.length)} CSV:nä
+        </button>
       </div>
 
+      {/* ---------- the list ---------- */}
       <ul className="space-y-2">
         {filtered.slice(0, limit).map((c) => {
           const mark = recordedFor(c.title)
@@ -368,6 +505,7 @@ export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bo
                 {c.subsPerMonth != null && <Metric k="tilaajaa / kk" v={fmt(c.subsPerMonth)} />}
                 <Metric k="videoita / kk" v={c.uploadsPerMonth != null ? String(c.uploadsPerMonth) : '–'} />
                 <Metric k="edellisestä" v={c.daysSinceUpload != null ? `${c.daysSinceUpload} pv` : '–'} />
+                {c.shortsShare != null && <Metric k="lyhytvideoita" v={`${c.shortsShare} %`} />}
               </dl>
 
               <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -463,15 +601,36 @@ export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bo
             </span>
             <button
               onClick={() => setCampaign(!campaign)}
-              className="ml-auto cursor-pointer rounded-brand bg-forest px-3 py-1.5 font-semibold text-white transition-colors hover:bg-forest-80"
+              className="ml-auto cursor-pointer rounded-brand-md bg-mint px-3 py-1.5 font-semibold text-ink transition-colors hover:bg-mint-80"
             >
               {campaign ? 'Sulje' : 'Luo kampanja'}
             </button>
             <button
-              onClick={download}
-              className="cursor-pointer rounded-brand border border-line-strong px-3 py-1.5 font-semibold text-ink-2 transition-colors hover:border-blue hover:text-blue"
+              onClick={() =>
+                download(
+                  `prenew-valitut-${selectedCreators.length}.csv`,
+                  [
+                    CSV_COLS.map(([h]) => h).join(','),
+                    ...selectedCreators.map((c) => CSV_COLS.map(([, g]) => esc(g(c))).join(',')),
+                  ].join('\n'),
+                  'text/csv;charset=utf-8',
+                )
+              }
+              className="cursor-pointer rounded-brand-md border border-line-strong px-3 py-1.5 font-semibold text-ink-2 transition-colors hover:border-forest hover:text-forest"
             >
-              Lataa JSON
+              CSV
+            </button>
+            <button
+              onClick={() =>
+                download(
+                  `prenew-kampanja-${selectedCreators.length}.json`,
+                  JSON.stringify(payload, null, 1),
+                  'application/json',
+                )
+              }
+              className="cursor-pointer rounded-brand-md border border-line-strong px-3 py-1.5 font-semibold text-ink-2 transition-colors hover:border-blue hover:text-blue"
+            >
+              JSON
             </button>
           </div>
 
@@ -479,33 +638,23 @@ export function Explorer({ creators, bounds }: { creators: Creator[]; bounds: Bo
             <div className="mt-3 max-h-[46vh] overflow-y-auto rounded-brand-lg border border-line bg-surface p-4">
               <p className="font-display text-sm font-bold">Kampanja {selected.size} tekijästä</p>
               <p className="mt-1 text-xs leading-relaxed text-ink-2">
-                Tästä eteenpäin yhteydenotto on erillinen vaihe eikä osa tätä haastetta. Näin se kytkeytyy:
-                lista menee yhdellä kutsulla lähetysmoottoriin, ja ratkaiseva kenttä on{' '}
+                Tästä eteenpäin yhteydenotto on erillinen vaihe eikä osa tätä haastetta. Lista menee yhdellä
+                kutsulla lähetysmoottoriin, ja ratkaiseva kenttä on{' '}
                 <code className="rounded-brand bg-surface-3 px-1 py-0.5 font-mono text-[11px]">analysis</code> —
-                moottorin perustelu <em>on</em> se tutkimus josta avausviesti kirjoitetaan, joten viesti osaa
-                nimetä miksi juuri tämä tekijä. Mikään ei lähde itse: luonnos jää odottamaan ihmisen hyväksyntää.
+                moottorin perustelu <em>on</em> se tutkimus josta avausviesti kirjoitetaan. Mikään ei lähde
+                itse: luonnos jää odottamaan ihmisen hyväksyntää.
               </p>
 
               <pre className="mt-3 overflow-x-auto rounded-brand bg-surface-3 p-3 font-mono text-[10px] leading-relaxed text-ink-2">
-{`selda_add_leads({
-  projectId: "<prenew>",
-  leads: [ ${selected.size} riviä ]
-})`}
+{`selda_add_leads({ projectId: "<prenew>", leads: [ ${selected.size} riviä ] })`}
               </pre>
 
               <p className="mt-3 text-[11px] font-semibold tracking-wide text-ink-3 uppercase">
-                Esimerkki yhdestä rivistä
+                Esimerkki yhden rivin briiffistä
               </p>
-              <pre className="mt-1 max-h-56 overflow-auto rounded-brand border border-line bg-surface-2 p-3 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-ink-2">
-                {JSON.stringify(payload.leads[0], null, 1)}
-              </pre>
-
-              {selected.size - withEmail > 0 && (
-                <p className="mt-3 text-xs text-ink-2">
-                  {selected.size - withEmail} valitulla ei ole sähköpostia kanavan kuvauksessa. Ne menevät läpi,
-                  mutta yhteystieto pitää silloin etsiä lähetysmoottorin puolella.
-                </p>
-              )}
+              <p className="mt-1 rounded-brand border border-line bg-surface-2 p-3 text-xs leading-relaxed text-ink-2">
+                {selectedCreators[0] ? analysisFor(selectedCreators[0]) : ''}
+              </p>
             </div>
           )}
         </div>
@@ -527,13 +676,7 @@ function Metric({ k, v, tone }: { k: string; v: string; tone?: 'good' | 'bad' })
   )
 }
 
-function Tag({
-  children,
-  tone,
-}: {
-  children: React.ReactNode
-  tone?: 'forest' | 'blue' | 'amber' | 'critical'
-}) {
+function Tag({ children, tone }: { children: React.ReactNode; tone?: 'forest' | 'blue' | 'amber' | 'critical' }) {
   const styles = {
     forest: 'bg-forest-10 text-forest',
     blue: 'bg-blue-10 text-blue',
@@ -568,7 +711,7 @@ function Seg<T extends string>({
   options: [T, string][]
 }) {
   return (
-    <div className="flex overflow-hidden rounded-brand border border-line-strong">
+    <div className="flex overflow-hidden rounded-brand-md border border-line-strong">
       {options.map(([v, label]) => (
         <button
           key={v}
@@ -601,7 +744,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer rounded-brand border border-line-strong bg-surface-2 px-2 py-1.5 font-semibold text-ink-2 transition-colors hover:text-ink"
+        className="cursor-pointer rounded-brand-md border border-line-strong bg-surface-2 px-2 py-1.5 font-semibold text-ink-2 transition-colors hover:text-ink"
       >
         {children}
       </select>
@@ -614,7 +757,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`cursor-pointer rounded-brand border px-2.5 py-1.5 font-semibold transition-colors ${
+      className={`cursor-pointer rounded-brand-md border px-2.5 py-1.5 font-semibold transition-colors ${
         on ? 'border-forest bg-forest text-white' : 'border-line-strong bg-surface-2 text-ink-2 hover:text-ink'
       }`}
     >

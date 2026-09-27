@@ -1010,6 +1010,12 @@ const csvCols = [
   ['loytyi', (r) => (r.via === 'chart' ? 'maalista' : 'kommentoija')],
   ['siemen', (r) => discovered.get(r.id)?.seed || ''],
   ['paras_video', (r) => r.topVideo || ''],
+  // Fetched already and thrown away until now. A human scanning the file judges a channel from
+  // its own words faster than from any score, and YouTube's topic classification is the one label
+  // here that nobody on our side wrote.
+  ['topic_luokat', (r) => (r.topics || []).join(' | ')],
+  ['avainsanat', (r) => (r.keywords || '').slice(0, 200)],
+  ['kuvaus', (r) => (r.desc || '').slice(0, 300)],
   ['perustelu', (r) => r.reason],
   // The feedback loop, and the only columns a human writes in. The next run reads them back, which
   // is how the scoring bounds get recalculated from their outcomes instead of our guesses.

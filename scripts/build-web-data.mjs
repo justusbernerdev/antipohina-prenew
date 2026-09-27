@@ -55,7 +55,7 @@ const platform = {
 
 // ---- discovery results, trimmed ----
 
-const trimmed = creators.map((r) => ({
+const trim = (r) => ({
   id: r.id,
   title: r.title,
   handle: r.handle || null,
@@ -101,7 +101,9 @@ const trimmed = creators.map((r) => ({
   hardwareSponsor: r.hardwareSponsor || null,
   via: r.via,
   reason: r.reason,
-}))
+})
+
+const trimmed = creators.map(trim)
 
 // ---- the engine's own bookkeeping ----
 
@@ -150,6 +152,9 @@ const targeted = existsSync('out/de-minecraft/creators.json')
           nicheLabel: r.nicheLabel, avgViews: r.avgViews, viewRatio: r.viewRatio,
           trend: r.trend || null, email: r.email, reason: r.reason,
         })),
+        // The full list too: the view lets you switch between the broad run and this one, and a
+        // summary cannot be filtered.
+        creators: t.map(trim),
       }
     })()
   : null
