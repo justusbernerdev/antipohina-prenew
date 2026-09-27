@@ -47,6 +47,8 @@ export type Creator = {
   /** Every point that moved the score, with the sentence that earned it. Sums to `score`. */
   parts: { text: string; points: number }[]
   madeForKids: boolean
+  socialFromVideo: boolean
+  emailFromVideo: boolean
 }
 
 export type MarketRow = {
@@ -147,6 +149,8 @@ export type Data = {
   request: RunRequest | null
   bounds: Bounds | null
   pipeline: Stage[]
+  /** Per-market counts for every stage, so the view can draw the pipeline without scaling a total. */
+  perMarket: Record<string, { chart: number; seeds: number; commenters: number; real: number; final: number }>
   runs: Run[]
   targeted: Targeted | null
   creators: Creator[]

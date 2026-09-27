@@ -3,7 +3,6 @@ import { Sora, Titillium_Web } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import data from './data.json'
-import { Nav } from './nav'
 
 // Prenew's own two typefaces, read from their site's CSS: Sora for display, Titillium Web for
 // body and UI. Both are on Google Fonts.
@@ -34,7 +33,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fi">
       <body className={`${sora.variable} ${titillium.variable} antialiased`}>
         <ClerkProvider>
-          <Nav />
           {children}
         </ClerkProvider>
       </body>

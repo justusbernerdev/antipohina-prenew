@@ -103,6 +103,8 @@ const trim = (r) => ({
   reason: r.reason,
   parts: r.parts || [],
   madeForKids: r.madeForKids || false,
+  socialFromVideo: r.socialFromVideo || false,
+  emailFromVideo: r.emailFromVideo || false,
 })
 
 const trimmed = creators.map(trim)
@@ -185,6 +187,7 @@ const out = {
   request,
   bounds,
   pipeline,
+  perMarket: pipelineFile.perMarket || {},
   runs,
   targeted,
   creators: trimmed,

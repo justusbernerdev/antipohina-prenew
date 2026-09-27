@@ -625,6 +625,7 @@ async function recentStats(r) {
     seconds: durationSeconds(v.contentDetails?.duration),
     lang: v.snippet.defaultAudioLanguage || v.snippet.defaultLanguage || null,
     title: v.snippet.title,
+    desc: v.snippet.description || '',
     tags: v.snippet.tags || [],
   })).sort((a, b) => b.at - a.at)
   if (!vids.length) return
@@ -676,6 +677,32 @@ async function recentStats(r) {
   }
 
   for (const v of used) if (v.lang) r.langs.push(v.lang)
+
+  // Socials again, this time from the video descriptions.
+  //
+  // YouTube's Links panel — the one showing TikTok, Instagram, Discord on the channel page — is
+  // not returned by the Data API at all, and the address behind "show email" sits behind a bot
+  // check that exists precisely to stop automated collection. Neither is scraped here.
+  //
+  // What creators do instead is repeat the same links in every video description, and those
+  // descriptions arrived in the videos.list response we already paid for. So this costs nothing,
+  // touches nothing outside the API, and finds the accounts the channel description omitted.
+  const fromVideos = socials(vids.map((v) => v.desc).join(' \n '))
+  for (const [k, v] of Object.entries(fromVideos)) {
+    if (!r[k]) {
+      r[k] = v
+      if (!r.platforms.includes(k)) r.platforms.push(k)
+      r.socialFromVideo = true
+    }
+  }
+  if (!r.email) {
+    const mail = emails(vids.map((v) => v.desc).join(' \n '))
+    if (mail.primary) {
+      r.email = mail.primary
+      r.emailBusiness = mail.business
+      r.emailFromVideo = true
+    }
+  }
   // Every sampled video, not only the ones in the window: the niche is a property of the channel
   // and more text means a more specific reading of it.
   r.nicheText = vids.map((v) => `${v.title} ${v.tags.join(' ')}`).join(' ').slice(0, 1500)
@@ -1129,6 +1156,31 @@ const csv = [
 ].join('\n')
 
 stage('Heidän markkinoillaan', eligible.length, 'muut maat pudotettu, tuntemattomat jätetty')
+
+// Per-market counts for every stage. The view draws the pipeline market by market, and without
+// these it would have to scale a global total by some share, which is a guess wearing the clothes
+// of a measurement. A commenter is attributed to the market of the seed it was found near, which
+// is the same attribution the country inference uses.
+const perMarket = {}
+for (const m of MARKETS) perMarket[m] = { chart: 0, seeds: 0, commenters: 0, real: 0, final: 0 }
+
+for (const [id, d] of discovered) {
+  const m = [...d.markets][0]
+  if (!m || !perMarket[m]) continue
+  if (d.via === 'chart') perMarket[m].chart++
+  else perMarket[m].commenters++
+}
+for (const seed of seeds) {
+  const m = seed.markets[0]
+  if (m && perMarket[m]) perMarket[m].seeds++
+}
+for (const r of forStats) {
+  const m = [...(discovered.get(r.id)?.markets || [])][0]
+  if (m && perMarket[m]) perMarket[m].real++
+}
+for (const r of eligible) {
+  if (r.country && perMarket[r.country]) perMarket[r.country].final++
+}
 if (WANT.length) {
   stage('Pyydetyssä nichessä', results.length, `${WANT.join(', ')} · ${offNiche} muuta nicheä pudotettu`)
 }
@@ -1178,7 +1230,7 @@ writeFileSync(`${OUT}/pipeline.json`, JSON.stringify({
     reasonCounts: B.reasonCounts,
     sales: B.sales,
   },
-  stages, units, cacheHits, markets: MARKETS,
+  stages, perMarket, units, cacheHits, markets: MARKETS,
   // Every endpoint this pipeline touches costs exactly one quota unit, and search (100 units) is
   // never called. So the number of calls is the cost, and a cold run costs units + cacheHits
   // however much of this particular run came off the disk.
