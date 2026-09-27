@@ -7,18 +7,16 @@ import { Flow } from './flow'
 import { List } from './list'
 import { ApiTab, McpTab, SeldaTab } from './integrations'
 import { UserButton } from '@clerk/nextjs'
+import { T, type Lang } from './i18n'
 
 type Tab = 'flow' | 'mcp' | 'api' | 'selda'
 
-const TABS: [Tab, string][] = [
-  ['flow', 'Dataflow'],
-  ['mcp', 'MCP'],
-  ['api', 'API'],
-  ['selda', 'Selda'],
-]
+const TAB_KEYS: Tab[] = ['flow', 'mcp', 'api', 'selda']
 
 export function Demo({ d }: { d: Data }) {
   const [tab, setTab] = useState<Tab>('flow')
+  const [lang, setLang] = useState<Lang>('fi')
+  const t = T[lang]
   const [cr, setCr] = useState<Criteria>(EMPTY_CRITERIA)
 
   const set = (patch: Partial<Criteria>) => setCr((p) => ({ ...p, ...patch }))
@@ -51,7 +49,7 @@ export function Demo({ d }: { d: Data }) {
           <span className="text-forest">PRENEW</span>
         </div>
         <nav className="-mx-4 flex items-center gap-6 overflow-x-auto px-4 sm:mx-0 sm:gap-8 sm:overflow-visible sm:px-0">
-          {TABS.map(([k, label]) => (
+          {TAB_KEYS.map((k) => (
             <button
               key={k}
               onClick={() => setTab(k)}
@@ -59,23 +57,30 @@ export function Demo({ d }: { d: Data }) {
                 tab === k ? 'border-forest text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'
               }`}
             >
-              {label}
+              {t.tabs[k]}
             </button>
           ))}
+          <button
+            onClick={() => setLang(lang === 'fi' ? 'en' : 'fi')}
+            aria-label={lang === 'fi' ? 'Switch to English' : 'Vaihda suomeksi'}
+            className="shrink-0 cursor-pointer rounded-brand-md border border-line px-2.5 py-1 font-display text-[13px] font-semibold text-ink-2 transition-colors hover:border-forest hover:text-forest"
+          >
+            {lang === 'fi' ? 'EN' : 'FI'}
+          </button>
           <span className="ml-auto shrink-0 sm:ml-0"><UserButton /></span>
         </nav>
       </header>
 
       {tab === 'flow' && (
         <>
-          <Flow d={d} cr={cr} set={set} count={rows.length} />
-          <List rows={rows} runDate={d.runDate ?? ''} />
+          <Flow d={d} cr={cr} set={set} count={rows.length} t={t} />
+          <List rows={rows} runDate={d.runDate ?? ''} t={t} />
         </>
       )}
 
-      {tab === 'mcp' && <McpTab cr={cr} rows={rows} nicheKeys={nicheKeys} />}
-      {tab === 'api' && <ApiTab cr={cr} rows={rows} quota={quota} nicheKeys={nicheKeys} />}
-      {tab === 'selda' && <SeldaTab rows={rows} />}
+      {tab === 'mcp' && <McpTab cr={cr} rows={rows} nicheKeys={nicheKeys} t={t} />}
+      {tab === 'api' && <ApiTab cr={cr} rows={rows} quota={quota} nicheKeys={nicheKeys} t={t} />}
+      {tab === 'selda' && <SeldaTab rows={rows} t={t} />}
     </div>
   )
 }

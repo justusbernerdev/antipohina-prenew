@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Data } from '../types'
+import type { Dict } from './i18n'
 import { conditionCount, FLAGS, SIZES, type Criteria } from './criteria'
 
 const f = (n: number) => n.toLocaleString('fi-FI')
@@ -15,11 +16,13 @@ export function Flow({
   cr,
   set,
   count,
+  t,
 }: {
   d: Data
   cr: Criteria
   set: (patch: Partial<Criteria>) => void
   count: number
+  t: Dict
 }) {
   // Which stage the explanation below the diagram is describing.
   const [focus, setFocus] = useState(1)

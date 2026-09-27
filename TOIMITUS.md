@@ -1,6 +1,8 @@
 # Mitä tämä on ja miten sen ottaa käyttöön
 
-Prenew challenge · tiimi antipöhinä
+Prenew challenge · tiimi antipöhinä · 27.9.2026
+
+[In English](TOIMITUS.en.md)
 
 ---
 
@@ -18,7 +20,7 @@ reittiä, ja valitsette itse:
                           │
    ENGINE ────────────────┼──▶ 2. Oma järjestelmä
    pisteytys + perustelu  │       CSV ja JSON ulos, ajastettuna. Ei mitään uutta opeteltavaa.
-   42 kenttää per tekijä  │
+   57 kenttää per tekijä  │
                           └──▶ 3. Kytkettynä yhteydenottoon
                                   löydöt siirtyvät briiffi mukanaan, ja tulokset
                                   valuvat takaisin teidän järjestelmäänne
@@ -32,37 +34,38 @@ automaatioidenne asia, ja kaikki muu tässä dokumentissa toimii ilman sitä.
 Mutta siitä seuraa yksi asia joka kannattaa sanoa ääneen:
 
 > **"Emme saa kontaktoitua vaikuttajia" ei ole enää syy.** Ei ensi kuussa vaan tänään. Listalla on
-> 130 tekijää joilla on sähköpostiosoite tiedossa, ja luovutus yhteydenottoon on yksi kutsu.
-
-Ja se kannattaa tehdä samantien, koska se on teidän etu: YouTuben ehdot eivät anna säilyttää dataa
-yli 30 päivää, ja tekijä kasvaa hinta-alueen yli omalla tahdillaan. Tästä enemmän kohdassa
-*Miksi tämä on tuoretavaraa*.
+> 260 tekijää joilla on sähköpostiosoite tiedossa, ja luovutus yhteydenottoon on yksi kutsu.
 
 ---
 
-## Mitä se ei ole
+## Tulos, 27.9.2026
 
-Tämä kohta ensin, koska se on se mitä tarkoitatte kun sanotte ettei erillistä workflowta haluta.
+| | |
+|---|---|
+| Tekijöitä listalla | **1 269** |
+| Alle 50 000 tilaajaa | **977** eli 77 % |
+| Löytyi kommentoijareitistä | **955** — ei löydettävissä vaikuttaja-alustoilta |
+| Sähköposti tiedossa | **260**, joista 96 business-osoitetta |
+| Myös TikTokissa | 217 · Instagram 306 · Twitch 204 |
+| Puhuu laitteistosta | 31 |
+| Nousukiidossa | 59 · kiinnitä nyt 7 |
+| Kiintiö | **6 378 / 10 000** yksikköä päivässä eli 64 % |
+| Hinta | **0 €** |
 
-- **Ei ohjelmistoa jota pitää opetella.** Ajo on yksi komentorivi.
-- **Ei tiliä eikä kuukausimaksua.** Käytössä on teidän oma ilmainen YouTube-avain.
-- **Ei meidän ylläpitämä palvelu.** Koodi on teidän, ja te ajatte sen. Tämä ei ole vain siisti
-  ratkaisu vaan myös ainoa ehtojen mukainen: YouTube rajoittaa API-datan säilytyksen 30 päivään,
-  joten oikea muoto on ajo joka tuottaa tuoreen tilannekuvan, ei tietokanta joka vanhenee.
-- **Ei outreachia.** Se jää teidän nykyisiin automaatioihinne, kuten sanoitte.
-- **Ei lukkoa mihinkään formaattiin.** Ulostulo on CSV ja JSON. Excel avaa sen suoraan.
+Maittain: tuntematon 346, Tanska 204, Puola 168, Ranska 146, Unkari 100, Saksa 95, Suomi 49,
+Alankomaat 49, **Viro 35**, Liettua 33, Ruotsi 23, Latvia 21.
 
-## Mitä se on
-
-Skripti joka ajetaan kun haluatte uusia kandidaatteja. Se lukee YouTubesta, pisteyttää löydöt
-teidän oman datanne perusteella ja kirjoittaa tiedoston. Siinä kaikki.
+**Validointi:** kone löysi **seitsemän teidän omaa kumppanianne** tuntematta niitä — MrRockis,
+EstMagicz, Joosep Teeb Asju, Kakkuh, Tubu, Jyksedi ja Hunter. Ne on merkitty tiedostoon ja siirretty
+pois kärjestä, koska ne eivät ole uusia liidejä. Ne ovat siellä siksi, että se on ainoa tapa
+osoittaa mallin osuvan oikeaan tyyppiin.
 
 ---
 
 ## Käyttöönotto, kolme askelta
 
-**1. Avain.** Google Cloud Console, uusi projekti, YouTube Data API v3 päälle, Credentials →
-API key. Ilmainen, ei laskutustietoja, kolme klikkausta.
+**1. Avain.** Google Cloud Console → uusi projekti → YouTube Data API v3 päälle → Credentials →
+API key. Ilmainen, ei laskutustietoja.
 
 **2. Aja.**
 
@@ -78,155 +81,117 @@ Ei asennusta, ei `npm install`ia, ei riippuvuuksia. Pelkkä Node.
 
 ## Mitä sille voi syöttää
 
-Tämä on se kohta jossa "kohdennettu data" tapahtuu. Kaikki rajaukset annetaan suoraan komennolla,
-eikä mikään niistä vaadi koodin koskemista.
+Kaikki rajaukset annetaan komennolla, eikä mikään niistä vaadi koodin koskemista.
 
 | Rajaus | Esimerkki | Mitä se tekee |
 |---|---|---|
-| Markkinat | `--markets=DE,FI` | Mitkä maat. Oletus on teidän yksitoista. |
-| **Niche** | `--niche=minecraft,fortnite` | Rajaa listan, **ja ohjaa mistä laajennetaan.** Ks. alla. |
-| Koko | `--min-subs=1000 --max-subs=50000` | Kokohaarukka. Oletus tulee teidän toteutuneista. |
-| Syvyys | `--seeds=20 --videos=8` | Montako siementä per markkina ja montako videota per siemen. |
-| Kiintiökatto | `--budget=3000` | Kova katto yhden ajon kiintiökulutukselle. |
-| Nichelista | `--niche=?` | Tulostaa kaikki 25 nicheä joita voi pyytää. |
+| Markkinat | `--markets=DE,EE` | Mitkä maat. Oletus on teidän yksitoista. |
+| Niche | `--niche=minecraft,fortnite` | Rajaa listan **ja ohjaa mistä laajennetaan** |
+| Segmentti | `--segment=parents` | Kenelle myydään: `any`, `parents` tai `adults` |
+| Koko | `--min-subs=1000 --max-subs=50000` | Kokohaarukka |
+| **Ohut markkina** | `--search=4` | Paikalliskielinen haku sinne missä maalista ei tuota paikallisia. **Tämä ratkaisi Viron.** |
+| Syvyys | `--seeds=20 --videos=8` | Siemeniä per markkina, videoita per siemen |
+| Kiintiökatto | `--budget=3000 --daily-limit=10000` | Kova katto ajolle ja päivälle |
+| Nichelista | `--niche=?` | Tulostaa kaikki 25 nicheä |
 
 Nichejä on 25: `minecraft`, `fortnite`, `roblox`, `cs`, `valorant`, `gta`, `ark`, `tarkov`,
 `rust`, `cities`, `simulator`, `palworld`, `battlefield`, `apex`, `lol`, `souls`, `sims`,
 `terraria`, `mobile`, `tech`, `esports`, `lifestyle`, `comedy`, `music`, `gaming`.
 
-**Niche ei ole vain suodatin ulostulossa.** Kun pyydätte Minecraftia, kone laajentaa
-Minecraft-tekijöiden kommentoijista, koska Minecraft-videon alla olevat tekijät tekevät
-Minecraftia. Mitattu ero: Saksa + Minecraft ilman tätä tuotti 25 tekijää, tämän kanssa **109**,
-joista 92 kommentoijareitistä ja 83 alle 50 000 tilaajan.
+**Niche ei ole vain suodatin.** Kun pyydätte Minecraftia, kone laajentaa Minecraft-tekijöiden
+kommentoijista. Mitattu ero: Saksa + Minecraft ilman tätä tuotti 25 tekijää, tämän kanssa **108**.
 
-Esimerkki, sama joka on demossa:
+---
 
-```
-node scripts/discover.mjs --markets=DE --niche=minecraft,fortnite --seeds=20 --videos=8
-```
+## Miten Viro ratkesi
+
+Viro tuotti aluksi **yhden** tekijän. Syy selvisi mittaamalla, ei arvaamalla.
+
+**Viron pelilistalla on 27 videota eikä yhtäkään virolaista tekijää.** Viisitoista kansainvälistä
+(MrBeast, IShowSpeed, Grian) ja kaksitoista venäjänkielistä. Laajennus lähti siis siitä mitä
+virolaiset *katsovat*, ei siitä mitä virolaiset *tekevät*. 96 233 haetusta kanavasta kahdellatoista
+oli maaksi EE ja yhdellä yli 500 tilaajaa.
+
+Kolme reittiä testattiin oikealla kiintiöllä:
+
+| Reitti | Hinta | Tulos | |
+|---|---|---|---|
+| Vironkielinen haku | 404 yks. | **8 oikeaa tekijää** | toimii |
+| Venäjänkielinen haku | 202 yks. | 1 relevantti | heikko, jätetty pois |
+| Wikidata SPARQL | ilmainen | 113 nimeä, 2 kanavaa | kattaa vain merkittävät henkilöt |
+
+Haku maksaa 100 yksikköä eli sata kertaa erähaun, ja siksi sitä ei käytetä muualla. Tässä se ostaa
+vain **siemenet**: laajennus niistä on sama ilmainen kommentoijareitti kuin kaikkialla muualla.
+
+Laukeaa automaattisesti vain kun maalista ei tuottanut paikallisia siemeniä.
+
+| Maa | Ennen | Jälkeen |
+|---|---|---|
+| **Viro** | 1 | **35** |
+| Liettua | 6 | **33** |
+| Latvia | 3 | **21** |
+| Tanska | 16 | **204** |
+
+Ja paras todiste: korjaus löysi **kaksi lisää teidän omaa kumppanianne**, EstMagiczin ja Joosep
+Teeb Asjun, molemmat virolaisia.
 
 ---
 
 ## Mitä CSV:ssä on
 
-42 saraketta. Akselin listaamat kentät, ja ne jotka lisäsimme koska teidän oma aineistonne
-osoitti ne tarpeellisiksi.
+57 saraketta, ja **sarakkeet valitaan itse ennen latausta.** Oletuksena kaksitoista, eli ne joista
+päätös syntyy — Excel näyttää kerralla suunnilleen saman verran, joten leveä tiedosto on se jota
+kukaan ei lue.
 
-### Akselin vähimmäisvaatimukset
+### Päätössarakkeet
 
-| Sarake | Sisältö |
+`toimenpide` · `kanava` · `url` · `maa` · `tilaajat` · `katselut_mediaani` ·
+`katselut_per_tilaaja` · `niche` · `trendi` · `yhteystieto` · `varoitukset` · `perustelu`
+
+**`toimenpide`** on yksi sana: *kontaktoi*, *odota* tai *ohita*. Pisteluku vaatii tulkintaa, tämä ei.
+
+**`varoitukset`** kokoaa yhteen kaiken mikä saa epäröimään: kilpailija, aiempi hylkäys, nykyinen
+kumppanuus, made for kids, yli rajan, epäilyttävä katselusuhde, epävarma maa, hiljentynyt kanava.
+
+**`perustelu`** on se sarake joka ratkaisee, ja pisteytys on eriteltävissä riviltä riville.
+
+### Akselin vähimmäisvaatimukset, kaikki mukana
+
+| Pyydetty | Sarake |
 |---|---|
-| `maa`, `maan_varmuus`, `kieli` | Maa päätellään kolmesta signaalista, ja epävarma on merkitty epävarmaksi |
-| `tilaajat` | |
-| `katselut_per_video`, `katselu_ikkuna` | 30 päivää aktiivisille, 90 vähemmän aktiivisille, kuten sanoitte |
-| `niche`, `niche_tarkka`, `pelit` | Karkea luokka, tarkka luokka ja mitkä pelit |
-| `yhteystieto`, `yhteystieto_business` | Sähköposti kuvauksesta, ja erikseen se joka näyttää yhteistyöosoitteelta |
+| country | `maa`, `maan_varmuus` |
+| subscriber amount | `tilaajat` |
+| avg views (30 pv aktiivisille, 90 vähemmän) | `katselut_per_video`, `katselu_ikkuna` |
+| niche (tech review / gaming, mikä peli) | `niche`, `niche_tarkka`, `pelit` |
+| contact detail | `yhteystieto`, `yhteystieto_business` |
+| nice to have: risks | `varoitukset`, `kilpailija`, `nuori_yleiso`, `made_for_kids` |
+| nice to have: trend | `trendi`, `trendi_pros`, `tilaajaa_per_kk` |
 
-### Riskit ja trendi, jotka olivat "nice to have"
+### Alustat
 
-| Sarake | Sisältö |
-|---|---|
-| `trendi`, `trendi_pros` | Nouseva, vakaa vai laskeva. 20 videon otos, uudempi puoli vanhempaa vastaan |
-| `katselut_per_tilaaja` | Onko yleisö elossa. Yli 200 % tarkoittaa yleensä lainattua sisältöä |
-| `kilpailija` | Mainitsee toisen konekaupan kuvauksessa. Suurin yksittäinen hylkäyssyynne |
-| `nuori_yleiso` | Tekijä kertoo itse kanavan olevan lapsiystävällinen, kymmenellä kielellä |
-| `aiemmin_hylatty`, `jo_kumppani` | Mitä teidän omasta datastanne tiedetään |
+`tiktok` · `instagram` · `twitch` · `facebook` · `x` — tunnukset kanavan **ja videoiden**
+kuvauksista. YouTuben Linkit-paneeli ei tule API:sta lainkaan, mutta tekijät toistavat samat linkit
+videokuvauksissaan, ja ne kuvaukset tulivat jo maksetussa vastauksessa. Ero: TikTok 28 → **217**,
+Instagram 27 → **306**, nolla lisäkiintiöllä.
 
-### Alustat, joista TikTok ja YouTube olivat tärkeimmät ja muut plussaa
+### Syöttösarakkeet
 
-| Sarake | Sisältö |
-|---|---|
-| `tiktok`, `instagram`, `twitch`, `facebook`, `x` | Tunnukset kanavan kuvauksesta |
-
-### Loput
-
-`pisteet`, `kanava`, `tunnus`, `url`, `katselu_mediaani`, `videoita_per_kk`, `pv_edellisesta`,
-`videoita_yhteensa`, `lyhytvideo_osuus`, `tykkays_pros`, `kommentti_pros`, `kanavan_ika_pv`,
-`puhuu_laitteistosta`, `loytyi`, `siemen`, `paras_video`, `perustelu`, `lopputulos`, `hylkayssyy`.
-
-Kaksi näistä kannattaa nostaa esiin:
-
-**`perustelu`** on se sarake joka ratkaisee. Lista jonka jokainen rivi selittää itsensä on
-tarkistettavissa yhdellä silmäyksellä, ja se on se ero niihin alustoihin jotka eivät toimineet.
-
-**`puhuu_laitteistosta`** tarkoittaa että tekijä luettelee kokoonpanonsa kanavan kuvauksessa tai
-avainsanoissa, eli myy koneita jo nyt koska yleisö kysyy. Yksikään vaikuttaja-alusta ei havaitse
-tätä. Se löytyi lukemalla teidän omien kumppanienne kanavat.
-
----
-
-## Palautesilmukka, eli miksi tämä tarkentuu käytössä
-
-Se yksi tiedosto jonka kaivoitte toteutumattomista yhteistöistä oli koko päivän arvokkain aineisto.
-Se muutti pisteytyksen rajoja neljässä kohdassa:
-
-- Yli 110 000 tilaajaa tarkoittaa käytännössä että joku ehti ensin. Kaikki viisi kilpailijan tai
-  eksklusiivisuuden takia hylättyä olivat 110k–629k. Toteutuneiden mediaani on 75 000.
-- Iso TikTok pienellä YouTubella tarkoittaa kallista. Hintasyyllä hylätyt olivat YouTubessa
-  33k–48k mutta TikTokissa 79k–340k.
-- Kilpailijan mainitseminen kanavan kuvauksessa on suurin yksittäinen hylkäyssyy, ja se on
-  havaittavissa ilmaiseksi.
-- Aiemmin hylätyt pitää tunnistaa. Yksi tekijä oli listan kärjessä ennen kuin tämä data saatiin,
-  ja te olitte jo hylänneet hänet.
-
-**Nämä rajat eivät enää ole koodissa.** Ne lasketaan teidän aineistostanne joka ajolla.
-`scripts/bounds.mjs` lukee toteutuneet, toteutumattomat ja kaiken mitä olette sen jälkeen
-kirjanneet, ja johtaa luvut niistä. Laskenta toistaa käsin tehdyn analyysin tarkalleen: yläraja
-110 000, hintaraja 79 000, toteutuneiden mediaani 75 000. Juuri siksi sen voi antaa liikkua itse.
-
-Jatko ei vaadi teiltä uutta järjestelmää. **CSV:ssä on kaksi tyhjää saraketta,
-`lopputulos` ja `hylkayssyy`.** Merkitsette ne normaalin työn ohessa. Vaihtoehtoisesti sama tieto
-menee sisään rajapinnasta, ks. seuraava kohta.
-
-Konkreettinen esimerkki siitä mitä yksi kirjaus tekee: kun merkitsette 62 000 tilaajan tekijän
-hylätyksi syystä *Competitor / exclusivity*, yläraja putoaa 110 000:sta 62 000:een ja kone kertoo
-miksi — kuusi hylkäystä samasta syystä, pienin niistä 62 000. Kaikki sitä isommat menetettiin myös,
-joten ne putoavat kärjestä seuraavassa ajossa. Kukaan ei koskenut koodiin.
-
----
-
-## Rajapinta, jos haluatte
-
-Sama moottori on käärittynä MCP-palvelimeksi, eli teidän omat agenttiprosessinne voivat kutsua
-sitä suoraan. Tämä on valinnainen lisäkerros eikä edellytys — CSV riittää, kuten sanoitte.
-
-```
-claude mcp add prenew -- node --env-file=.env scripts/mcp-server.mjs
-```
-
-Neljä työkalua, ja ratkaiseva asia on että tieto kulkee **molempiin suuntiin**:
-
-| Työkalu | Suunta | Tehtävä |
-|---|---|---|
-| `discover_creators` | ulos | Markkinat, nichet ja kokorajat sisään, pisteytetyt kandidaatit ulos |
-| `record_outcome` | **sisään** | Yksi tekijä ja lopputulos: toteutui, hylättiin syystä X, ei vastannut |
-| `get_scoring_rules` | ulos | Nykyiset rajat ja painot, kukin perusteluineen |
-| `list_runs` | ulos | Ajohistoria ja mikä muuttui edelliseen verrattuna |
-
-`record_outcome` on niistä tärkein ja se on se jota kukaan muu ei tarjoa. Kun teidän CRM kirjaa
-hylkäyksen, sama tieto valuu moottoriin ja rajat lasketaan uudelleen aineistosta. Se palauttaa
-suoraan mikä raja liikkui ja mihin uusi raja perustuu.
-
-Tämä tarkoittaa että **aivot ovat teidän omat eikä meidän.** Kaksi eri asiakasta samalla
-moottorilla saa ajan myötä eri rajat, koska heidän onnistumisensa ovat erilaisia. Ja koska
-mainitsitte ettette oikeastaan dokumentoi huonoja diilejä, tämä on se mekanismi joka tekee
-dokumentoinnista sivutuotteen eikä erillistä työtä.
-
-Palvelin ei lähetä mitään kenellekään. Se etsii.
+`lopputulos` · `hylkayssyy` · `koodi` · `tilauksia` · `myynti_eur` — nämä te täytätte, ja seuraava
+ajo lukee ne takaisin.
 
 ---
 
 ## Miksi tämä on tuoretavaraa
 
-Sanoitte että kone on varastossa keskimäärin viikon. Sama periaate pätee tähän listaan, eikä se ole
+Sanoitte että kone on varastossa keskimäärin viikon. Sama pätee tähän listaan, eikä se ole
 vertauskuva vaan sääntö.
 
 **YouTuben Developer Policies III.E.4.d:** muuta kuin valtuutettua API-dataa saa säilyttää
-*"not longer than 30 calendar days"*. **III.E.4.c:** 30 päivän jälkeen data on joko poistettava tai
+*"not longer than 30 calendar days"*. **III.E.4.c:** sen jälkeen data on joko poistettava tai
 haettava uudelleen. Pysyvä tekijätietokanta ei siis ole vaihtoehto, eikä se ole tämän ratkaisun
 puute vaan sen muoto.
 
-Siksi moottori säilyttää pysyvästi vain kaksi asiaa:
+Moottori säilyttää pysyvästi vain kaksi asiaa:
 
 - **Yksisuuntaisen tiivisteen** siitä kuka on jo nähty. Tiiviste ei ole YouTube-dataa eikä palaudu
   tunnukseksi — se osaa vastata vain kysymykseen onko tämä nähty aiemmin.
@@ -234,101 +199,114 @@ Siksi moottori säilyttää pysyvästi vain kaksi asiaa:
 
 Kaikki mittarit haetaan uudelleen joka ajossa, ja välimuisti vanhenee 30 päivässä itsestään.
 
-Tästä seuraa kaksi käytännön asiaa:
-
-**Ajastus toimii.** Kirjanpito tietää kuka on jo nähty, joten viikoittainen ajo tuottaa vain uudet
-tekijät eikä toista samaa tuhatta riviä. Ensimmäinen ajo raportoi 1 002 uutta, heti perään ajettu
-toinen nolla.
-
-**Ja kiire on mitattavissa.** Teidän oma hylkäysdatanne sanoo että yli 110 000 tilaajan kohdalla joku
-ehti jo ensin, mikä tekee koosta kellon. Kysymys ei ole onko tekijä oikean kokoinen nyt, vaan kuinka
-kauan hän pysyy sellaisena.
+Tästä seuraa kaksi käytännön asiaa. **Ajastus toimii:** kirjanpito tietää kuka on jo nähty, joten
+kuukausittainen ajo tuottaa vain uudet tekijät. **Ja kiire on mitattavissa:** yli 110 000 tilaajan
+kohdalla joku ehti jo ensin, mikä tekee koosta kellon.
 
 | Signaali | Määrä | Mitä se tarkoittaa |
 |---|---|---|
-| **Nousukiito** | 50 | Tavoittaa jo enemmän ihmisiä kuin sillä on tilaajia, ja kasvaa. Mitattu, ei ennustettu. |
-| **Kiinnitä nyt** | 6 | Nykytahdilla ylittää rajan alle vuodessa. Arvio kanavan omasta kasvuvauhdista. |
+| **Nousukiito** | 59 | Tavoittaa jo enemmän ihmisiä kuin sillä on tilaajia, ja kasvaa. Mitattu. |
+| **Kiinnitä nyt** | 7 | Nykytahdilla ylittää rajan alle vuodessa. Arvio kanavan omasta kasvuvauhdista. |
 
-Kone joka on viikon varastossa on liikkuvaa vaihto-omaisuutta. Kone joka on kuusi kuukautta
-varastossa on tappio. Löydetty tekijä käyttäytyy täsmälleen samoin.
+---
+
+## Oppiva osa
+
+Rajat eivät ole koodissa. `scripts/bounds.mjs` lukee toteutuneet, toteutumattomat ja kaiken mitä
+olette sen jälkeen kirjanneet, ja johtaa luvut niistä. Laskenta toistaa käsin tehdyn analyysin
+tarkalleen: yläraja 110 000, hintaraja 79 000, toteutuneiden mediaani 75 000.
+
+Vastauksenne muuttivat pisteytystä kolmessa kohdassa:
+
+**Kasvu ja sitoutuminen koon edelle.** *"Painotus on kasvaviin pieniin ja keskikokoisiin kanaviin
+(noin 10–100 k), joilla on korkea sitoutuminen ja nouseva trendi."*
+
+```
+koko            +15 → +10 painopisteessä, +4 muualla
+nouseva trendi  +10 → +20
+sitoutuminen     ei pisteytetty → +20
+```
+
+**Lapsiystävällisyys suodattimeksi.** *"Made for kids -kanavat karsitaan lähtökohtaisesti pois.
+Teini-ikäiset (13–17) kuuluvat luonnolliseen yleisöömme."* Merkintä nojaa nyt YouTuben omaan
+`madeForKids`-lippuun. Koko haussa 71 tällaista kanavaa.
+
+**Kilpailijalista tarkennettu.** MIFCOM ja Multitronic lisätty. Corsair ja HyperX poistettu — ne
+ovat oheislaitebrändejä. Se korjaus löytyi kun huomattiin että MrRockis ja Kakkuh, teidän omat
+kumppaninne, oli merkitty kilpailijamaininnasta.
+
+### Koodien tuotto
+
+22 koodia kirjattu, **39 tilausta yhteensä, ja 11 koodia 22:sta tuotti nolla.** Se 50 %:n osuus on
+luku jota ei näy missään muualla.
+
+Kokoluokkakohtaista jakoa **ei voi laskea**, koska koodeja ei saa yhdistettyä tilaajalukuihin.
+Kone sanoo sen ääneen eikä arvaa. **Tämä on ainoa asia joka puuttuu ennen kuin pisteytyksen
+painopiste voidaan asettaa datalla eikä arviolla:** mitkä kanavat noiden 22 koodin takana ovat.
+
+### Hauras raja
+
+Kone kertoo itse kun yksi rivi tekee kaiken työn. Testissä yksi kirjattu hylkäys 13 600 tilaajan
+kohdalla siirsi ylärajan 110 000:sta 13 600:aan. Lukua ei tasoiteta — asiakkaan datan silottelu
+sanomatta on pahempi kuin hauras luku — mutta se sanotaan:
+
+> *"Raja lepää yhden havainnon varassa: seuraavaksi pienin on 110 000, eli 8 kertaa suurempi."*
+
+---
+
+## Rajapinta
+
+```
+claude mcp add prenew -- node --env-file=.env scripts/mcp-server.mjs
+```
+
+| Työkalu | Suunta | Tehtävä |
+|---|---|---|
+| `discover_creators` | ulos | Markkinat, nichet, segmentti ja kokorajat sisään |
+| `record_outcome` | **sisään** | Toteutui, hylättiin syystä X, ei vastannut. Myös koodin tuotto |
+| `get_scoring_rules` | ulos | Nykyiset rajat ja painot perusteluineen |
+| `list_competitor_partners` | ulos | Keitä kilpailijat maksavat |
+| `prepare_outreach_leads` | ulos | Liidit valmiissa muodossa, briiffi mukana |
+| `list_runs` | ulos | Ajohistoria ja mikä muuttui |
+
+Silmukka on ajettu läpi oikeaa moottoria vasten: `discover_creators` antoi 188 virolaista,
+`record_outcome` hylkäsi yhden, `get_scoring_rules` näytti siirtyneen rajan, ja uusi ajo pudotti
+saman tekijän listalta. Neljäs vaihe lukee levyltä, joten se paljastaisi kulissin.
+
+**Palvelin ei lähetä mitään kenellekään.**
 
 ---
 
 ## Mitä se maksaa
 
-Nolla.
+Nolla euroa. YouTube Data API:ssa ei ole laskutusta lainkaan — se on kova 10 000 yksikön päiväkatto.
 
-Täysi ajo yhdellätoista markkinalla kuluttaa **3 864 yksikköä YouTuben 10 000 yksikön päivittäisestä
-ilmaiskiintiöstä, eli 39 %.** Uusinta-ajo maksaa käytännössä nolla, koska vastaukset ovat
-välimuistissa. Haku on kiintiössä noin sata kertaa kalliimpaa kuin tunnisteella tehty erähaku, ja
-siksi tämä ei etsi hakusanoilla lainkaan siemenvaiheen jälkeen.
+| | |
+|---|---|
+| Täysi ajo yhdellätoista markkinalla | 6 378 / 10 000 = **64 %** |
+| Uusinta-ajo | ~30 yksikköä, koska vastaukset ovat välimuistissa |
+| Kohdennettu ajo (Saksa + Minecraft) | 849 yksikköä = 8 % |
 
-Kohdennettu ajo on halvempi: Saksa + Minecraft kuluttaa 849 yksikköä eli 8 %.
+Kaksi täyttä ajoa mahtuu päivään, kolme ei. Kiintiö nollautuu keskiyöllä Tyynenmeren aikaa eli noin
+klo 10 Suomen aikaa. Moottori pitää kirjaa kulutuksesta ja kieltäytyy ylittämästä rajaa.
 
-TikTok on ainoa osa joka maksaisi, koska sen virallinen tutkimusrajapinta on kaupallisilta suljettu.
-Sen osuus olisi muutamia euroja kertaluontoisesti, ei tilausta.
-
----
-
-## Todiste että pisteytys osuu
-
-Ajoimme koneen tuntematta teidän kumppaneitanne. Se nosti **Kakkuhin, Tubun, MrRockisin, Jyksedin
-ja Hunterin** 1 000 tekijän joukosta, eli löysi viisi teidän omaa kumppaniannne ilman että niitä
-syötettiin sisään. Lisäksi se tunnisti kaksi joita olitte jo lähestyneet ja hylänneet.
-
-Ne on merkitty tiedostoon ja siirretty pois kärjestä, koska ne eivät ole uusia liidejä. Ne ovat
-siellä siksi, että se on ainoa tapa osoittaa mallin osuvan oikeaan tyyppiin.
+**TikTok on ainoa osa joka maksaisi.** Sen virallinen tutkimusrajapinta on rajattu akateemisiin
+toimijoihin, eli kaupallisesti suljettu. Seuraajaluvut vaatisivat kaupallisen datalähteen, muutamia
+euroja kertaluontoisesti. Tunnukset löytyvät jo nyt ilmaiseksi 217 tekijältä.
 
 ---
 
-## Mitä listalla oikeasti on
+## Rehellisesti: mikä ei ole valmista
 
-Putki vaiheittain, mitattu:
-
-```
-11 markkinaa → 335 kanavaa listoilta → 132 siementä → 20 109 kommentoijaa
-→ 1 386 oikeaa tekijää → 1 000 heidän markkinoillaan
-```
-
-Kaksi eri joukkoa, ja ero kannattaa tietää.
-
-**Maakohtaisilta listoilta** tulleet 220 ovat julkisesti löydettävissä. Voisitte periaatteessa
-koostaa ne itse, joten ne eivät yksin ole vastaus.
-
-**Kommentoijareitistä** tulleet **775 tekijää** eivät näy yhdelläkään vaikuttaja-alustalla. Ne ovat
-tyypillisesti 500–10 000 tilaajan paikallisia tekijöitä, ja tämä on se osa joka vastaa siihen mitä
-sanoitte: *pienemmissä markkinoissa valmiit työkalut jättivät paljon tekijöitä löytymättä.*
-
-Alle 50 000 tilaajan tekijöitä on **752 eli 76 % listasta.** Sähköposti on tiedossa 130:llä, ja
-48:lla se on erikseen yhteistyöosoitteelta näyttävä.
-
-Yksi asia on rehellistä sanoa: **347 tekijän maa jäi tuntemattomaksi.** Ne ovat listalla merkittynä
-eikä pudotettuna, koska tyhjä maakenttä on tavallisinta juuri niillä pienillä paikallisilla
-tekijöillä joita tämän on tarkoitus löytää. Suodatin listassa erottaa varmat epävarmoista.
+- **`/v1/discover`-rajapinta ei ole pystyssä.** Demon API-välilehti näyttää oikeat kriteerit ja
+  oikean vastausdatan, mutta HTTP-päätepiste on rakentamatta. MCP-palvelin toimii, mutta paikallisesti.
+- **TikTok-lähtöinen haku puuttuu.** Tunnukset löytyvät, seuraajaluvut eivät.
+- **346 tekijän maa on tuntematon.** Ne ovat listalla merkittynä eikä pudotettuna, koska tyhjä
+  maakenttä on tavallisinta juuri pienillä paikallisilla tekijöillä. Suodatin erottaa varmat.
+- **Koodien kokoluokkajako odottaa teitä.**
 
 ---
 
-## Yksi puute, ja te kerroitte itse sen syyn
+## Osoite
 
-**Viro tuotti yhden tekijän**, vaikka teillä on sieltä kuusi yhteistyötä. Latvia (3) ja Liettua (6)
-jäivät myös ohuiksi.
-
-Syy selvisi kun kertoitte miten löysitte virolaiset: **selasitte TikTokia Virossa.** Tämä versio
-lukee YouTubea, joten se etsii väärästä paikasta juuri siinä markkinassa jossa teidän oma
-menetelmänne toimii.
-
-Se on johdonmukaista kaiken muun kanssa mitä aineistosta näkyy. TikTok on mukana 44
-yhteistyössänne 69:stä eli 64 %:ssa, YouTube 22:ssa. Viron YouTube-trendilistalla on vain 27
-videota, eli pienessä markkinassa YouTube-puoli yksinkertaisesti loppuu kesken.
-
-**Mitä se vaatii.** TikTokin virallinen tutkimusrajapinta on rajattu akateemisiin ja
-voittoa tavoittelemattomiin toimijoihin, eli se ei ole kaupallisesti käytettävissä. Sama löytö
-tehdään kaupallisen datapalvelun kautta maakohtaisella haulla, mikä on käytännössä sama asia kuin
-TikTokin selaaminen Viron asetuksella, paitsi että kone tekee sen kerralla ja kirjaa tulokset.
-
-Kustannus on muutamia euroja kertaluontoisesti, ei tilausta. Se on ainoa kohta koko ratkaisussa
-joka ei ole ilmainen, ja se on samalla se joka ratkaisee pienimmät markkinat.
-
-Tämä on siis tiedossa oleva ja hinnoiteltu aukko, ei yllätys. Tunnukset kuvauksista löytyvät jo
-nyt: 28 tekijällä on TikTok, 27:llä Instagram ja 31:llä Twitch, mutta seuraajalukuja niihin ei saa
-ilman sitä datalähdettä.
+**https://prenew.justusberner.com** — kirjautuminen sähköpostilla, koodi postiin.

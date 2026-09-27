@@ -121,6 +121,7 @@ mkdirSync(OUT, { recursive: true })
 
 let units = 0
 let cacheHits = 0
+let searchCalls = 0
 let cacheExpired = 0
 
 // ---------- the daily quota, tracked across runs ----------
@@ -649,6 +650,7 @@ if (SEARCH_PER_MARKET > 0) {
         // out. Counting it unconditionally made a fully cached re-run report 1 500 units it never
         // spent, which is the kind of number that ends up in a customer document.
         const before = cacheHits
+        searchCalls++
         const r = await api('search', {
           part: 'snippet', type: 'channel', q, regionCode: market,
           relevanceLanguage: MARKET_LANG[market] || '', maxResults: 50,
@@ -1389,7 +1391,10 @@ writeFileSync(`${OUT}/pipeline.json`, JSON.stringify({
   // Every endpoint this pipeline touches costs exactly one quota unit, and search (100 units) is
   // never called. So the number of calls is the cost, and a cold run costs units + cacheHits
   // however much of this particular run came off the disk.
-  coldUnits: units + cacheHits,
+  // Every endpoint costs one unit except search, which costs a hundred. A cached search still cost
+  // a hundred the first time, so the cold figure carries the surcharge whether or not this run paid.
+  coldUnits: units + cacheHits + searchCalls * 99,
+  searchCalls,
   dailyFreeUnits: 10_000,
 }, null, 1))
 
@@ -1424,7 +1429,7 @@ const journalEntry = {
   rising: results.filter((r) => r.trend === 'nouseva').length,
   knownPartnersFound: results.filter((r) => r.known).map((r) => r.title),
   units,
-  coldUnits: units + cacheHits,
+  coldUnits: units + cacheHits + searchCalls * 99,
   bounds: { takenZone: TAKEN_ZONE, realisedMedian: B.realisedMedian, recordedOutcomes: B.counts.recorded },
 }
 const JOURNAL = new URL('../data/runs.jsonl', import.meta.url)
@@ -1479,7 +1484,7 @@ if (WANT.length) console.log(`Pyydetty niche: ${WANT.join(', ')} — ${offNiche}
 saveQuota()
 console.log(`Kiintiö: ${units} yksikköä käytetty, ${cacheHits} osumaa välimuistista${cacheExpired ? `, ${cacheExpired} vanhentunutta (yli 30 pv, haettu uudelleen)` : ''}`)
 console.log(`  tänään yhteensä: ${spentToday + units} / ${DAILY_LIMIT}, jäljellä ${Math.max(0, remainingToday())}`)
-console.log(`  koko ajo kylmänä: ${units + cacheHits} / 10 000 yksikköä päivässä (${Math.round(((units + cacheHits) / 10_000) * 100)} %), uusinta ${units}`)
+console.log(`  koko ajo kylmänä: ${units + cacheHits + searchCalls * 99} / 10 000 yksikköä päivässä (${Math.round(((units + cacheHits + searchCalls * 99) / 10_000) * 100)} %), uusinta ${units}`)
 console.log(`\nKirjoitettu: ${OUT}/creators.csv ja ${OUT}/creators.json`)
 
 console.log(`\nKärki 15:`)

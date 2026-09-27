@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { Creator } from '../types'
+import type { Dict } from './i18n'
 import { Platforms } from '../platforms'
 import { action, warnings } from './criteria'
 import { ALL_KEYS, COLUMNS, CORE_KEYS, GROUPS, toCsv } from './columns'
@@ -41,7 +42,7 @@ function save(name: string, body: string, type: string) {
 const haystack = (c: Creator) =>
   `${c.title} ${c.handle || ''} ${c.nicheLabel} ${c.games.join(' ')} ${countryName(c.country)} ${c.email || ''} ${c.reason}`.toLowerCase()
 
-export function List({ rows, runDate }: { rows: Creator[]; runDate: string }) {
+export function List({ rows, runDate, t }: { rows: Creator[]; runDate: string; t: Dict }) {
   const [limit, setLimit] = useState(12)
   const [picker, setPicker] = useState(false)
   const [keys, setKeys] = useState<string[]>(CORE_KEYS)

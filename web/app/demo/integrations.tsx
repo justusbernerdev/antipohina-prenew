@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Creator } from '../types'
 import { asRequest, type Criteria } from './criteria'
 import { leadFor } from '../lead'
+import type { Dict } from './i18n'
 import { countryName } from './countries'
 
 const f = (n: number) => n.toLocaleString('fi-FI')
@@ -13,7 +14,7 @@ const LABEL = 'text-sm tracking-[0.14em] text-ink-3'
 
 const BASE = 'https://prenew.justusberner.com'
 
-export function ApiTab({ cr, rows, quota, nicheKeys }: { cr: Criteria; rows: Creator[]; quota: number; nicheKeys: Record<string, string> }) {
+export function ApiTab({ cr, rows, quota, nicheKeys, t }: { cr: Criteria; rows: Creator[]; quota: number; nicheKeys: Record<string, string>; t: Dict }) {
   const body = asRequest(cr, nicheKeys)
 
   // The first two rows of the real result, not an invented example: the response on screen is the
@@ -74,7 +75,7 @@ const TOOLS = [
   { name: 'list_runs', desc: 'Aiemmat ajot, kriteerit ja muutos edelliseen.' },
 ]
 
-export function McpTab({ cr, rows, nicheKeys }: { cr: Criteria; rows: Creator[]; nicheKeys: Record<string, string> }) {
+export function McpTab({ cr, rows, nicheKeys, t }: { cr: Criteria; rows: Creator[]; nicheKeys: Record<string, string>; t: Dict }) {
   const [key, setKey] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -169,7 +170,7 @@ const STEPS = [
 
 type Draft = { leadId: string; company?: string; email?: string | null; subject?: string; body?: string; error?: string }
 
-export function SeldaTab({ rows }: { rows: Creator[] }) {
+export function SeldaTab({ rows, t }: { rows: Creator[]; t: Dict }) {
   const handover = rows.filter((c) => !c.known && !c.rejected && !c.competitor)
   const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState(false)

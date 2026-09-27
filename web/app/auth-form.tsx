@@ -15,7 +15,7 @@ import { useSignIn, useSignUp } from '@clerk/nextjs'
 //
 // Measurements come from the handed-over design: 52px controls, 12px radius, 17px text, 12px gap.
 
-type Step = 'email' | 'code'
+type Step = 'email' | 'code' | 'password'
 type Mode = 'signIn' | 'signUp'
 type ClerkErr = { code: string; message: string; longMessage?: string } | null
 
@@ -58,6 +58,7 @@ export function AuthForm({ start = 'signIn' }: { start?: Mode }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resent, setResent] = useState(false)
+  const [password, setPassword] = useState('')
 
   // Ask Clerk to email a code. Tries signing in first and falls back to creating the account,
   // because "I do not have an account yet" is not something the person should have to declare.
@@ -67,10 +68,19 @@ export function AuthForm({ start = 'signIn' }: { start?: Mode }) {
       setMode('signIn')
       return null
     }
-    if (attempt.error.code !== 'form_identifier_not_found') return attempt.error as ClerkErr
 
+    // Any failure here may simply mean "no account yet". The code naming this differs between
+    // Clerk versions — an earlier build checked only for form_identifier_not_found and this
+    // instance answers something else, which left a first-time visitor staring at "Couldn't find
+    // your account" with no way forward.
+    //
+    // So a sign-up is attempted regardless. If that comes back saying the account already exists,
+    // the original sign-in error was the real one and it is the one reported.
     const created = await signUp.create({ emailAddress: address })
-    if (created.error) return created.error as ClerkErr
+    if (created.error) {
+      const exists = /exists|taken|duplicate/i.test(created.error.code || '')
+      return (exists ? attempt.error : created.error) as ClerkErr
+    }
     const sent = await signUp.verifications.sendEmailCode()
     if (sent.error) return sent.error as ClerkErr
     setMode('signUp')
@@ -105,8 +115,41 @@ export function AuthForm({ start = 'signIn' }: { start?: Mode }) {
       return
     }
 
+    // A Clerk instance can require a password even when the code is the first factor. Rather than
+    // asking for one up front and adding friction to every sign-up, it is asked for only when the
+    // instance actually says it is missing.
+    if (mode === 'signUp' && signUp.status === 'missing_requirements') {
+      setBusy(false)
+      if (signUp.missingFields?.includes('password')) {
+        setStep('password')
+        return
+      }
+      setError('Tunnuksen luonti vaatii lisätietoja joita tämä lomake ei kysy.')
+      return
+    }
+
     // finalize is what makes the new session the active one.
     const done = mode === 'signIn' ? await signIn.finalize() : await signUp.finalize()
+    setBusy(false)
+    if (done.error) {
+      setError(message(done.error as ClerkErr))
+      return
+    }
+    router.push('/')
+  }
+
+  async function onPassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (busy || password.length < 8) return
+    setBusy(true)
+    setError(null)
+    const set = await signUp.password({ password })
+    if (set.error) {
+      setBusy(false)
+      setError(message(set.error as ClerkErr))
+      return
+    }
+    const done = await signUp.finalize()
     setBusy(false)
     if (done.error) {
       setError(message(done.error as ClerkErr))
@@ -125,6 +168,34 @@ export function AuthForm({ start = 'signIn' }: { start?: Mode }) {
     setBusy(false)
     if (again.error) setError(message(again.error as ClerkErr))
     else setResent(true)
+  }
+
+  if (step === 'password') {
+    return (
+      <form onSubmit={onPassword} className="flex flex-col gap-3">
+        <p className="text-[15px] leading-snug text-ink-2">
+          Sähköposti on vahvistettu. Aseta vielä salasana, niin tunnus on valmis.
+        </p>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value)
+            setError(null)
+          }}
+          autoComplete="new-password"
+          autoFocus
+          minLength={8}
+          placeholder="Salasana, vähintään 8 merkkiä"
+          aria-label="Salasana"
+          className={INPUT}
+        />
+        <button type="submit" disabled={busy || password.length < 8} className={BUTTON}>
+          {busy ? 'Luodaan…' : 'Valmis'}
+        </button>
+        {error && <p className="text-[15px] text-critical">{error}</p>}
+      </form>
+    )
   }
 
   if (step === 'code') {
