@@ -1,12 +1,12 @@
 import Link from 'next/link'
-import { SignUp } from '@clerk/nextjs'
-import { AuthShell } from '../../auth-shell'
+import { AuthForm } from '../auth-form'
+import { AuthShell } from '../auth-shell'
 
 export default function SignUpPage() {
   return (
     <AuthShell
       title="Luo tunnus"
-      lead="Riittää sähköpostiosoite. Saat vahvistuskoodin sähköpostiisi."
+      lead="Riittää sähköpostiosoite. Saat koodin postiisi."
       footer={
         <>
           Onko sinulla jo tunnus?{' '}
@@ -16,7 +16,7 @@ export default function SignUpPage() {
         </>
       }
     >
-      <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl="/" />
+      <AuthForm start="signUp" />
     </AuthShell>
   )
 }
