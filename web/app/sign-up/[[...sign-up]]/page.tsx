@@ -1,10 +1,22 @@
+import Link from 'next/link'
 import { SignUp } from '@clerk/nextjs'
-import { AuthSplit } from '../../auth-split'
+import { AuthShell } from '../../auth-shell'
 
 export default function SignUpPage() {
   return (
-    <AuthSplit title="Luo tunnus" lead="Riittää sähköpostiosoite. Vie puoli minuuttia.">
+    <AuthShell
+      title="Luo tunnus"
+      lead="Riittää sähköpostiosoite. Saat vahvistuskoodin sähköpostiisi."
+      footer={
+        <>
+          Onko sinulla jo tunnus?{' '}
+          <Link href="/sign-in" className="font-semibold text-forest hover:underline">
+            Kirjaudu
+          </Link>
+        </>
+      }
+    >
       <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl="/" />
-    </AuthSplit>
+    </AuthShell>
   )
 }

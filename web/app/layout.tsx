@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Sora, Titillium_Web } from 'next/font/google'
-import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
+import { Nav } from './nav'
 import './globals.css'
 import data from './data.json'
 
@@ -48,15 +49,36 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               fontFamily: 'var(--font-titillium), ui-sans-serif, system-ui, sans-serif',
             },
             elements: {
-              card: 'shadow-none border border-line',
+              // The shell around the form is ours, so Clerk's own card, header and footer are
+              // removed rather than restyled: two frames around one form is one too many.
               rootBox: 'w-full',
-              cardBox: 'w-full shadow-none border border-line',
+              cardBox: 'w-full border-0 shadow-none bg-transparent',
+              card: 'w-full p-0 border-0 shadow-none bg-transparent gap-3',
+              header: 'hidden',
               headerTitle: 'hidden',
               headerSubtitle: 'hidden',
-              // Mint with dark text is what their own buttons are. White on mint does not hold.
+              footer: 'hidden',
+              footerAction: 'hidden',
+              logoBox: 'hidden',
+              form: 'gap-3',
+              formFieldRow: 'gap-3',
+              formFieldLabel: 'sr-only',
+              formFieldInput:
+                'h-[52px] px-4 text-[17px] rounded-[12px] border border-line bg-white text-ink placeholder:text-ink-3',
+              // Mint with dark text, the way their own buttons are. White on mint does not hold.
               formButtonPrimary:
-                'bg-mint text-ink hover:bg-mint-80 font-semibold normal-case tracking-normal shadow-none',
+                'h-[52px] text-[17px] font-semibold normal-case tracking-normal rounded-[12px] bg-mint text-ink hover:bg-mint-80 shadow-none after:hidden',
+              // Email only, by request. The divider goes with them, or it separates nothing.
+              socialButtons: 'hidden',
+              socialButtonsBlockButton: 'hidden',
+              socialButtonsProviderIcon: 'hidden',
+              dividerRow: 'hidden',
+              dividerText: 'hidden',
+              alternativeMethods: 'hidden',
               footerActionLink: 'text-forest font-semibold',
+              identityPreview: 'rounded-[12px] border border-line bg-white',
+              formResendCodeLink: 'text-forest font-semibold',
+              otpCodeFieldInput: 'h-[52px] text-[17px] rounded-[12px] border-line',
             },
           }}
           // The rest of the page is Finnish, so an English form reads as someone else's component
@@ -106,30 +128,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         >
-          <nav className="deep sticky top-0 z-20">
-            <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3 sm:px-8">
-              <span className="font-display text-sm font-bold tracking-tight text-mint">
-                antipöhinä <span className="font-normal text-white/60">/ Prenew</span>
-              </span>
-              <div className="ml-auto flex items-center gap-3 text-xs">
-                <Show when="signed-out">
-                  <SignInButton>
-                    <button className="cursor-pointer rounded-brand-md border border-white/30 px-3 py-1.5 font-semibold text-white/85 transition-colors hover:border-white/60 hover:text-white">
-                      Kirjaudu
-                    </button>
-                  </SignInButton>
-                  <SignUpButton>
-                    <button className="cursor-pointer rounded-brand-md bg-mint px-3 py-1.5 font-semibold text-ink transition-colors hover:bg-mint-80">
-                      Luo tunnus
-                    </button>
-                  </SignUpButton>
-                </Show>
-                <Show when="signed-in">
-                  <UserButton />
-                </Show>
-              </div>
-            </div>
-          </nav>
+          <Nav />
           {children}
         </ClerkProvider>
       </body>
