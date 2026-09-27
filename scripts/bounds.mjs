@@ -135,7 +135,14 @@ export function bounds() {
   // Everything here is empty until they record the first code result, and the engine says so
   // rather than pretending. Once there is data, the size band that sold replaces the size band
   // that merely replied as the thing scoring aims at.
-  const sold = recorded.filter((o) => (o.orders ?? 0) > 0 || (o.revenue ?? 0) > 0)
+  // Two different populations, and collapsing them hides the most useful number in the file.
+  // `measured` is every collaboration whose code result was recorded at all, zero included.
+  // `sold` is the subset that produced something. The gap between them is the failure rate of a
+  // collaboration that actually happened, which is not visible anywhere else: of the 22 codes
+  // Prenew reported, 11 produced no orders at all.
+  const measured = recorded.filter((o) => o.orders != null || o.revenue != null)
+  const sold = measured.filter((o) => (o.orders ?? 0) > 0 || (o.revenue ?? 0) > 0)
+  const duds = measured.length - sold.length
 
   const BANDS = [
     { key: '0-10k', min: 0, max: 10_000 },
@@ -176,6 +183,9 @@ export function bounds() {
   const sellerMedian = median(sellerSubs)
 
   const sales = {
+    collaborationsMeasured: measured.length,
+    producedNothing: duds,
+    dudRate: measured.length ? Math.round((duds / measured.length) * 100) : null,
     creatorsWithResult: sold.length,
     totalOrders: sold.reduce((a, o) => a + (o.orders || 0), 0),
     totalRevenue: sold.reduce((a, o) => a + (o.revenue || 0), 0),
@@ -190,8 +200,10 @@ export function bounds() {
       : sold.length > 0 ? 'liian vähän dataa'
       : 'ei dataa',
     active: sold.length >= 4,
-    basis: sold.length
-      ? `${sold.length} tekijää joilla on mitattu koodin tuotto, yhteensä ${sold.reduce((a, o) => a + (o.orders || 0), 0)} tilausta${bestBand ? `; paras kokoluokka ${bestBand.band} (${bestBand.ordersPerCreator} tilausta per tekijä)` : ''}`
+    basis: measured.length
+      ? `${measured.length} yhteistyötä joilla koodin tuotto on mitattu, yhteensä ${measured.reduce((a, o) => a + (o.orders || 0), 0)} tilausta. ` +
+        `${duds} niistä tuotti nolla tilausta (${Math.round((duds / measured.length) * 100)} %).` +
+        (bestBand ? ` Paras kokoluokka ${bestBand.band}, ${bestBand.ordersPerCreator} tilausta per tekijä.` : ' Kokoluokkakohtaista jakoa ei voi laskea, koska tekijöiden tilaajaluvut puuttuvat.')
       : 'Ei yhtään kirjattua koodin tuottoa. Tämä on se mittari joka korvaisi toiston, koska se mittaa myytyjä koneita eikä vastattuja viestejä.',
   }
 

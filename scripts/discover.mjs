@@ -72,6 +72,26 @@ const MAX_SUBS = Number(arg('max-subs', 250_000))   // outer bound for reporting
 const TAKEN_ZONE = B.takenZone    // above this: already with a competitor, or exclusive
 const MIN_VIDEOS = 5
 
+// The band Akseli named when asked whether to chase small growing creators or large expensive
+// ones: "Painotus on kasvaviin pieniin ja keskikokoisiin kanaviin (noin 10-100 k tilaajaa), joilla
+// on korkea sitoutuminen ja nouseva trendi... Hakukone saa siis järjestää kasvunopeuden ja
+// sitoutumisen perusteella, ei pelkän koon."
+//
+// So size stops being the thing that scores and becomes a window. Growth and engagement carry the
+// weight instead, and a large channel is not excluded but is no longer a prize: they use those
+// "harkiten yksittäisiin brändihetkiin, kuten Black Fridayna".
+const SWEET_MIN = 10_000
+const SWEET_MAX = 100_000
+
+// "Korkea sitoutuminen" has to mean high compared with something. A fixed number picked from one
+// run's distribution stops being the top quarter as soon as the population changes — set at 0.23 %
+// from a subset, it matched 41 % of the full list, which is not a signal. So the threshold is
+// computed from each run's own eligible creators at scoring time and reported with the result.
+let engagedCommentRate = 0.23
+
+// Creators aimed at under-13s. Excluded by request; teenagers are explicitly wanted.
+const EXCLUDE_KIDS = !process.argv.includes('--include-kids')
+
 // Videos read per channel to measure recent performance. playlistItems costs one unit for up to
 // 50 ids and videos.list one unit for up to 50 ids, so 20 costs exactly what 10 costs. More
 // videos means a usable trend (10 newer vs 10 older) and a far better niche reading.
@@ -136,7 +156,7 @@ async function api(endpoint, params) {
 // channels.list costs one unit per call whatever parts are asked for, so brandingSettings
 // (the creator's own keywords) and topicDetails (YouTube's own topic classification) are free
 // niche signal and there is no reason not to take them.
-async function channelsByIds(ids, part = 'snippet,statistics,contentDetails,brandingSettings,topicDetails') {
+async function channelsByIds(ids, part = 'snippet,statistics,contentDetails,brandingSettings,topicDetails,status') {
   const out = []
   for (let i = 0; i < ids.length; i += 50) {
     const r = await api('channels', { part, id: ids.slice(i, i + 50).join(',') })
@@ -351,7 +371,11 @@ const ORGANISATION = /\b(clan|esports?|e-sports?|team|org|organisation|organizat
 // Prenew's own partners — as promoting a competitor. Corsair sells a keyboard, not a refurbished PC,
 // so a creator who works with them is not unavailable. If anything they have already shown they do
 // hardware deals and know how they work.
-const COMPETITOR = /\b(dubaro|one\.de|alternate|mindfactory|memorypc|memory pc|csl.?computer|jimm'?s|verkkokauppa|gigantti|power\.fi|inet\.se|webhallen|komplett|proshop|elgiganten|back ?market|refurbed|mediamarkt|saturn|notebooksbilliger|nbb|caseking|megekko|azerty|coolblue|morele|x-?kom|komputronik|alza|ldlc|materiel\.net|topachat|cybertek|pccomponentes)\b/i
+// Akseli named these when asked, and the three groups are his: valmiskoneiden myyjät, käytettyjen
+// tai kunnostettujen markkinapaikat, ja kotimaiset myyjät. MIFCOM and Multitronic came from that
+// answer and were missing here. He also confirmed the split made earlier: "Corsair ja HyperX ovat
+// oheislaitebrändejä eivätkä varsinaisesti kilpaile kanssamme. Niiden sponsorointi ei ole este."
+const COMPETITOR = /\b(mifcom|dubaro|memorypc|memory pc|one\.de|alternate|mindfactory|csl.?computer|caseking|notebooksbilliger|nbb|back ?market|refurbed|rebuy|swappie|verkkokauppa|jimm'?s|multitronic|gigantti|power\.fi|inet\.se|webhallen|komplett|proshop|elgiganten|megekko|azerty|coolblue|morele|x-?kom|komputronik|alza|ldlc|materiel\.net|topachat|cybertek|pccomponentes)\b/i
 
 // Component and peripheral brands. Adjacent rather than competing, and reported separately so the
 // distinction is visible instead of buried in one penalty.
@@ -377,7 +401,7 @@ function note(id, via, market, lang) {
 console.log(`Markets: ${MARKETS.join(',')} | seeds/market: ${SEEDS_PER_MARKET} | budget: ${BUDGET} units`)
 if (WANT.length) console.log(`Niche:   ${WANT.join(', ')}`)
 if (SEGMENT !== 'any') console.log(`Segmentti: ${SEGMENT === 'parents' ? 'vanhemmat ostajana' : 'aikuinen ostaa itselleen'}`)
-console.log(`Koodin tuotto: ${B.sales.confidence}${B.sales.active ? ` — paras kokoluokka ${B.sales.bestBand}` : ''}`)
+console.log(`Koodin tuotto: ${B.sales.basis}`)
 console.log(`Rajat laskettu heidän datastaan (${B.counts.collaborations} yhteistyötä, ${B.counts.rejections} hylkäystä${B.counts.recorded ? `, ${B.counts.recorded} kirjattua lopputulosta` : ''}):`)
 console.log(`  yläraja ${TAKEN_ZONE.toLocaleString('fi-FI')} — ${B.basis.takenZone}`)
 console.log(`  osuma-alue mediaani ${B.realisedMedian?.toLocaleString('fi-FI')} — ${B.basis.realisedMedian}\n`)
@@ -455,6 +479,10 @@ function record(c, via, meta) {
     emailBusiness: mail.business,
     emailsAll: mail.all,
     sideChannel: isSideChannel(c.snippet.title, desc),
+    // YouTube's own made-for-kids designation, which is the authoritative version of what the
+    // description regex guesses at. Akseli: "made for kids -kanavat karsitaan lähtökohtaisesti
+    // pois", so this is a filter and not a boost.
+    madeForKids: c.status?.madeForKids === true,
     youthHint: YOUTH_HINT.test(desc),
     familySignal: FAMILY_SIGNAL.test(`${desc} ${keywords}`),
     rigTalk: RIG_TALK.test(`${desc} ${keywords}`),
@@ -754,59 +782,91 @@ for (const r of candidates.values()) {
   r.localOnly = r.markets.length === 1
 }
 
+// ---------- 6b. what counts as engaged, in this run ----------
+
+{
+  // The same population that ends up in the file, or the quartile describes a different set from
+  // the one it is applied to: computed over subs >= 4000 it matched 37 % of a list whose small
+  // creators comment far more.
+  const rates = [...candidates.values()]
+    .filter((r) => r.commentRate != null && !r.sideChannel && r.videos >= MIN_VIDEOS && r.subs >= 500)
+    .map((r) => r.commentRate)
+    .sort((a, b) => a - b)
+  if (rates.length >= 40) {
+    engagedCommentRate = Number(rates[Math.floor(rates.length * 0.75)].toFixed(2))
+  }
+}
+
 // ---------- 7. scoring ----------
 
 for (const r of candidates.values()) {
-  const reasons = []
+  // Each entry is [text, points]. Pushing the points alongside the words is what lets the view
+  // answer "why 145" with a breakdown rather than with a number somebody has to trust.
+  const parts = []
   let score = 0
+  // Points are parked by add() and attach to the next reason pushed, so the breakdown cannot drift
+  // from the total: every point that moves the score is spoken for by a sentence.
+  let pending = 0
+  const add = (n) => { score += n; pending += n }
+  const take = () => { const p = pending; pending = 0; return p }
+  const reasons = {
+    push: (text) => parts.push({ text, points: take() }),
+    unshift: (text) => parts.unshift({ text, points: take() }),
+  }
 
   // Audience alive. Both bounds matter: a very high ratio usually means borrowed content.
   if (r.viewRatio >= 0.15 && r.viewRatio <= 2.0) {
-    score += 30
+    add(30)
     reasons.push(`katselut ${Math.round(r.viewRatio * 100)} % tilaajista`)
   } else if (r.viewRatio > 2.0) {
-    score -= 10
+    add(-(10))
     reasons.push(`katselusuhde ${Math.round(r.viewRatio * 100)} % epäilyttävän korkea`)
   } else if (r.viewRatio > 0) {
     reasons.push(`katselut vain ${Math.round(r.viewRatio * 100)} % tilaajista`)
   }
 
   // Present on both platforms: the strongest repeat signal in Prenew's own data.
-  if (r.tiktok) { score += 25; reasons.push('myös TikTokissa') }
+  if (r.tiktok) { add(25); reasons.push('myös TikTokissa') }
 
   // Already talks about hardware, so the product fits the channel without being forced.
-  if (r.rigTalk) { score += 20; reasons.push('puhuu laitteistosta') }
+  if (r.rigTalk) { add(20); reasons.push('puhuu laitteistosta') }
 
   // Their market, not just any market.
-  if (r.inTargetMarket) { score += 10 } else if (r.country) { score -= 20; reasons.push(`${r.country} ei ole heidän markkina`) }
+  if (r.inTargetMarket) {
+    add(10)
+    reasons.push(`${r.country} on heidän markkinansa`)
+  } else if (r.country) {
+    add(-20)
+    reasons.push(`${r.country} ei ole heidän markkina`)
+  }
 
   // Above the taken zone a creator is usually already with a competitor or priced as exclusive:
   // their rejections for "competitor / exclusivity" had a YouTube median of 479k.
   if (r.subs > TAKEN_ZONE) {
-    score -= 30
+    add(-(30))
     reasons.push(`${Math.round(r.subs / 1000)}k tilaajaa, yli rajan ${Math.round(TAKEN_ZONE / 1000)}k: ${B.basis.takenZone}`)
   }
-  if (r.subs > MAX_SUBS) { score -= 20; reasons.push('selvästi yli heidän haarukkansa') }
+  if (r.subs > MAX_SUBS) { add(-(20)); reasons.push('selvästi yli heidän haarukkansa') }
 
   // Already promotes another PC retailer. Largest single rejection reason in their own data.
-  if (r.competitor) { score -= 40; reasons.push(`mainitsee kilpailijan (${r.competitor})`) }
+  if (r.competitor) { add(-(40)); reasons.push(`mainitsee kilpailijan (${r.competitor})`) }
 
   // A component or peripheral brand is not a competitor: they sell a keyboard, Prenew sells a
   // machine. It is a mild positive instead, because the creator has done a hardware deal before
   // and knows how one works. This distinction exists because lumping the two together flagged
   // one of Prenew's own partners as promoting a competitor.
   if (r.hardwareSponsor && !r.competitor) {
-    score += 5
+    add(5)
     reasons.push(`tehnyt laitteistoyhteistyön (${r.hardwareSponsor}), ei kilpailija`)
   }
 
   // An organisation has no persona to partner with.
-  if (r.organisation) { score -= 40; reasons.push('organisaatio, ei tekijä') }
+  if (r.organisation) { add(-(40)); reasons.push('organisaatio, ei tekijä') }
 
   // They already approached this creator and said no.
   if (r.rejected) {
     const later = r.rejected.later === 'Did collab later'
-    score -= later ? 10 : 50
+    add(-(later ? 10 : 50))
     reasons.unshift(later
       ? `HYLÄTTIIN AIEMMIN (${r.rejected.reason}) mutta yhteistyö toteutui myöhemmin`
       : `TE HYLKÄSITTE TÄMÄN: ${r.rejected.reason}`)
@@ -820,27 +880,27 @@ for (const r of candidates.values()) {
   r.games = n.games
   r.nicheKeys = n.keys
   r.onRequestedNiche = !WANT.length || n.keys.some((k) => WANT.includes(k))
-  score += Math.round(n.w * 20)
+  add(Math.round(n.w * 20))
   if (n.w >= 0.9) reasons.push(`${r.nicheLabel}, niche vaatii koneen`)
   else if (n.w <= 0.3) reasons.push(`${r.nicheLabel}, niche ei vaadi konetta`)
   else if (n.primary) reasons.push(r.nicheLabel)
 
   // Growing now is worth more than having been big. Their own rejections show the opposite end:
   // by the time a creator is large, someone else already signed them.
-  if (r.trend === 'nouseva') { score += 10; reasons.push(`katselut nousussa ${r.trendPct} %`) }
-  else if (r.trend === 'laskeva') { score -= 10; reasons.push(`katselut laskussa ${r.trendPct} %`) }
+  if (r.trend === 'nouseva') { add(20); reasons.push(`katselut nousussa ${r.trendPct} %`) }
+  else if (r.trend === 'laskeva') { add(-(15)); reasons.push(`katselut laskussa ${r.trendPct} %`) }
 
   // The closing window. This is the one signal that says act rather than consider.
   if (r.signNow) {
-    score += 15
+    add(15)
     reasons.unshift(`KIINNITÄ NYT: kasvaa ${fmtInt(r.subsPerMonth)} tilaajaa/kk, arviolta ${r.monthsToBound} kk ${Math.round(TAKEN_ZONE / 1000)}k rajaan`)
   } else if (r.monthsToBound != null && r.monthsToBound <= 24 && r.trend !== 'laskeva') {
-    score += 5
+    add(5)
     reasons.push(`arviolta ${r.monthsToBound} kk rajaan nykytahdilla`)
   }
 
   if (r.breakingOut) {
-    score += 15
+    add(15)
     reasons.unshift(`NOUSUKIITO: tavoittaa ${Math.round(r.viewRatio * 100)} % tilaajamäärästään per video ja kasvaa, vielä ${fmtInt(r.subs)} tilaajaa`)
   }
 
@@ -852,13 +912,21 @@ for (const r of candidates.values()) {
   // The parent is reachable when the channel says so itself, which is stronger than the niche.
   r.parentsChoice = r.familySignal || (youngLean && r.youthHint)
 
+  // Under-13 channels are out by request: "made for kids -kanavat karsitaan lähtökohtaisesti
+  // pois". Teenagers are not the same thing and are explicitly wanted, so nothing here penalises
+  // a young audience as such — only YouTube's own made-for-kids designation.
+  if (r.madeForKids) {
+    add(-(60))
+    reasons.unshift('MADE FOR KIDS, karsitaan: yleisö on alle 13')
+  }
+
   if (SEGMENT === 'parents') {
-    if (r.parentsChoice) { score += 20; reasons.push('vanhempi tavoitettavissa kanavan omin sanoin') }
-    else if (youngLean) { score += 8; reasons.push('nuori yleisö, ostaja on vanhempi') }
-    if (adultLean && !youngLean) { score -= 15; reasons.push('aikuisyleisö, ei Vanhempien valinta -tuotteelle') }
+    if (r.parentsChoice) { add(20); reasons.push('vanhempi tavoitettavissa kanavan omin sanoin') }
+    else if (youngLean) { add(8); reasons.push('nuori yleisö, ostaja on vanhempi') }
+    if (adultLean && !youngLean) { add(-(15)); reasons.push('aikuisyleisö, ei Vanhempien valinta -tuotteelle') }
   } else if (SEGMENT === 'adults') {
-    if (adultLean && !youngLean) { score += 15; reasons.push('aikuisyleisö ostaa itselleen') }
-    if (youngLean && !adultLean) { score -= 15; reasons.push('nuori yleisö, ostopäätös on muualla') }
+    if (adultLean && !youngLean) { add(15); reasons.push('aikuisyleisö ostaa itselleen') }
+    if (youngLean && !adultLean) { add(-(15)); reasons.push('nuori yleisö, ostopäätös on muualla') }
   }
 
   // What actually sold machines. Dormant until they record enough code results; the weight is
@@ -867,7 +935,7 @@ for (const r of candidates.values()) {
     const band = B.sales.byBand.find((b) => b.band === B.sales.bestBand)
     const [lo, hi] = { '0-10k': [0, 10_000], '10-50k': [10_000, 50_000], '50-110k': [50_000, 110_000], '110k+': [110_000, Infinity] }[B.sales.bestBand]
     if (r.subs >= lo && r.subs < hi) {
-      score += 15
+      add(15)
       reasons.push(`kokoluokka ${B.sales.bestBand} tuotti teillä ${band.ordersPerCreator} tilausta per tekijä`)
     }
   }
@@ -875,33 +943,50 @@ for (const r of candidates.values()) {
   // Reach on more than the two platforms they asked about. Small weight on purpose: their own
   // data measures YouTube and TikTok, so IG, Twitch and FB are reported more than they are scored.
   if (r.platforms.length >= 3) {
-    score += 5
+    add(5)
     reasons.push(`${r.platforms.length} alustaa (${r.platforms.slice(1).join(', ')})`)
   }
 
-  // In their proven size range.
-  if (r.subs >= MIN_SUBS && r.subs <= MAX_SUBS) { score += 15; reasons.push('kokoluokka osuu') }
-  else if (r.subs < MIN_SUBS) reasons.push('alle heidän haarukkansa')
+  // Size is a window now, not a prize. Akseli named 10-100k as the focus and said the engine
+  // should rank on growth and engagement rather than on size alone, so this is worth less than
+  // the trend and engagement signals below it.
+  if (r.subs >= SWEET_MIN && r.subs <= SWEET_MAX) {
+    add(10)
+    reasons.push('10-100k, heidän painopisteensä')
+  } else if (r.subs >= MIN_SUBS && r.subs <= MAX_SUBS) {
+    add(4)
+    reasons.push('haarukassa mutta painopisteen ulkopuolella')
+  } else if (r.subs < MIN_SUBS) {
+    reasons.push('alle heidän haarukkansa')
+  }
+
+  // Engagement, which they asked for by name. A comment costs a viewer more than a like, so the
+  // comment rate is the one that separates an audience from a view count.
+  if (r.commentRate != null && r.commentRate >= engagedCommentRate) {
+    add(20)
+    reasons.push(`sitoutunut yleisö, ${r.commentRate} % kommentoi`)
+  }
 
   // Local rather than global, which is what small markets need.
-  if (r.localOnly && r.via === 'chart') { score += 10; reasons.push('vain yhden maan listalla') }
-  if (r.via === 'commenter') { score += 10; reasons.push(`löytyi kommentoijana${discovered.get(r.id)?.seed ? ` (${discovered.get(r.id).seed})` : ''}`) }
+  if (r.localOnly && r.via === 'chart') { add(10); reasons.push('vain yhden maan listalla') }
+  if (r.via === 'commenter') { add(10); reasons.push(`löytyi kommentoijana${discovered.get(r.id)?.seed ? ` (${discovered.get(r.id).seed})` : ''}`) }
 
   // Active.
   if (r.daysSinceUpload != null) {
-    if (r.daysSinceUpload <= 14) { score += 10; reasons.push('julkaisee aktiivisesti') }
-    else if (r.daysSinceUpload > 90) { score -= 15; reasons.push(`${r.daysSinceUpload} pv edellisestä videosta`) }
+    if (r.daysSinceUpload <= 14) { add(10); reasons.push('julkaisee aktiivisesti') }
+    else if (r.daysSinceUpload > 90) { add(-(15)); reasons.push(`${r.daysSinceUpload} pv edellisestä videosta`) }
   }
 
   // Contactable.
-  if (r.email) { score += 5; reasons.push('yhteystieto kuvauksessa') }
+  if (r.email) { add(5); reasons.push('yhteystieto kuvauksessa') }
 
   if (r.countryConfidence === 'epävarma') reasons.push('maa epävarma')
   if (r.youthHint) reasons.push('viitteitä nuoresta yleisöstä')
   if (r.known) reasons.unshift('JO TEIDÄN KUMPPANINNE')
 
   r.score = score
-  r.reason = reasons.join('; ')
+  r.parts = parts
+  r.reason = parts.map((p) => p.text).join('; ')
 }
 
 // ---------- 7b. who has been seen before ----------
@@ -940,6 +1025,9 @@ for (const r of candidates.values()) {
 
 const eligible = [...candidates.values()]
   .filter((r) => !r.sideChannel)
+  // "made for kids -kanavat karsitaan lähtökohtaisesti pois". YouTube's own designation, not a
+  // guess from the description, and reversible with --include-kids.
+  .filter((r) => !EXCLUDE_KIDS || !r.madeForKids)
   .filter((r) => r.videos >= MIN_VIDEOS && r.subs >= 500)
   .filter((r) => r.avgViews != null)
   // Keep their markets, and keep unknowns: an empty country field is common precisely among the
@@ -1001,6 +1089,7 @@ const csvCols = [
   ['yhteystieto_business', (r) => r.emailBusiness || ''],
   ['puhuu_laitteistosta', (r) => (r.rigTalk ? 'kyllä' : '')],
   ['nuori_yleiso', (r) => (r.youthHint ? 'kyllä' : '')],
+  ['made_for_kids', (r) => (r.madeForKids ? 'kyllä' : '')],
   ['jo_kumppani', (r) => (r.known ? 'kyllä' : '')],
   ['aiemmin_hylatty', (r) => (r.rejected ? r.rejected.reason : '')],
   ['kilpailija', (r) => r.competitor || ''],
@@ -1161,6 +1250,9 @@ if (competitorPartners.length) {
   console.log(`     → ${OUT}/kilpailijoiden-kumppanit.csv`)
 }
 console.log(`  merkitty nuori yleisö:   ${results.filter((r) => r.youthHint).length}`)
+console.log(`  made for kids kanavia:   ${[...candidates.values()].filter((r) => r.madeForKids).length} koko haussa${EXCLUDE_KIDS ? ', karsittu tiedostosta' : ', mukana (--include-kids)'}`)
+console.log(`  sitoutunut yleisö:       ${results.filter((r) => r.commentRate >= engagedCommentRate).length} (kynnys ${engagedCommentRate} %, laskettu tämän ajon ylimmästä neljänneksestä)`)
+console.log(`  painopisteessä 10-100k:  ${results.filter((r) => r.subs >= SWEET_MIN && r.subs <= SWEET_MAX).length}`)
 console.log(`  jo heidän kumppaneitaan: ${alreadyKnown.length}${alreadyKnown.length ? ` (${alreadyKnown.map((r) => r.title).join(', ')})` : ''}`)
 console.log(`  aiemmin hylättyjä:       ${alreadyRejected.length}${alreadyRejected.length ? ` (${alreadyRejected.map((r) => `${r.title}: ${r.rejected.reason}`).join(', ')})` : ''}`)
 console.log(`  mainitsee kilpailijan:   ${results.filter((r) => r.competitor).length}`)

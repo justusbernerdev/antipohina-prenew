@@ -1,1 +1,222 @@
-[]
+[
+ {
+  "channel": "KIRDEZ",
+  "outcome": "realised",
+  "code": "KIRDEZ5",
+  "orders": 9,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "DENZO",
+  "outcome": "realised",
+  "code": "DENZO5",
+  "orders": 7,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "TOMBIE",
+  "outcome": "realised",
+  "code": "TOMBIE5",
+  "orders": 6,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "SPIELESTYLER",
+  "outcome": "realised",
+  "code": "SPIELESTYLER5",
+  "orders": 4,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "SCREENFIRE",
+  "outcome": "realised",
+  "code": "SCREENFIRE5",
+  "orders": 4,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "JORDAN",
+  "outcome": "realised",
+  "code": "JORDAN5",
+  "orders": 2,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "DEKTIV",
+  "outcome": "realised",
+  "code": "DEKTIV5",
+  "orders": 2,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "PANZER",
+  "outcome": "realised",
+  "code": "PANZER5",
+  "orders": 2,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "KOLAY",
+  "outcome": "realised",
+  "code": "KOLAY20",
+  "orders": 1,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "KAJA",
+  "outcome": "realised",
+  "code": "KAJA20",
+  "orders": 1,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "DERDANO",
+  "outcome": "realised",
+  "code": "DERDANO5",
+  "orders": 1,
+  "subs": null,
+  "note": null,
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "HASSARACING",
+  "outcome": "realised",
+  "code": "HASSARACING",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "HOPPII",
+  "outcome": "realised",
+  "code": "HOPPII",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "ISM",
+  "outcome": "realised",
+  "code": "ISM50",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "JOKER",
+  "outcome": "realised",
+  "code": "JOKER5",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "KEKU",
+  "outcome": "realised",
+  "code": "KEKU500",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "KNISTER",
+  "outcome": "realised",
+  "code": "KNISTER",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "LIAM",
+  "outcome": "realised",
+  "code": "LIAM5",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "REBEKKA",
+  "outcome": "realised",
+  "code": "REBEKKA30",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "REZEARS",
+  "outcome": "realised",
+  "code": "REZEARS5",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "TMP",
+  "outcome": "realised",
+  "code": "TMP5",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ },
+ {
+  "channel": "TUOMASX",
+  "outcome": "realised",
+  "code": "TUOMASXPRENEW",
+  "orders": 0,
+  "subs": null,
+  "note": "Yhteistyö tehtiin, koodi ei tuottanut yhtään tilausta",
+  "source": "Akselin koodiraportti 27.9.2026",
+  "at": "2026-09-27T00:00:00.000Z"
+ }
+]

@@ -101,6 +101,8 @@ const trim = (r) => ({
   hardwareSponsor: r.hardwareSponsor || null,
   via: r.via,
   reason: r.reason,
+  parts: r.parts || [],
+  madeForKids: r.madeForKids || false,
 })
 
 const trimmed = creators.map(trim)

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import type { Bounds, Creator } from './types'
 import { apply, EMPTY, PRESETS, SORTS, type FilterState, type SortKey } from './filters'
 import { analysisFor, leadFor } from './lead'
+import { Platforms } from './platforms'
 
 const fmt = (n: number) => n.toLocaleString('fi-FI')
 
@@ -109,6 +110,7 @@ export function Explorer({
   const [limit, setLimit] = useState(40)
   const [recorded, setRecorded] = useState<Recorded[]>([])
   const [open, setOpen] = useState<string | null>(null)
+  const [why, setWhy] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [campaign, setCampaign] = useState(false)
 
@@ -486,15 +488,24 @@ export function Explorer({
                 <span className="rounded-brand bg-surface-3 px-1.5 py-0.5 text-[11px] font-semibold text-ink-2">
                   {c.nicheLabel}
                 </span>
+                <Platforms c={c} />
                 <span className="ml-auto text-[11px] text-ink-3">
                   {c.via === 'commenter' ? 'kommentoijareitistä' : 'maakohtaiselta listalta'}
                 </span>
               </div>
 
               <dl className="nums mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-                <Metric k="tilaajat" v={fmt(c.subs)} />
-                <Metric k={`katselut / video (${c.viewWindow || '?'})`} v={c.avgViews != null ? fmt(c.avgViews) : '–'} />
-                <Metric k="katselut / tilaaja" v={c.viewRatio != null ? `${Math.round(c.viewRatio * 100)} %` : '–'} />
+                <Metric k="tilaajat" v={fmt(c.subs)} why="Prenewin painopiste on 10 000 – 100 000 tilaajaa." />
+                <Metric
+                  k={`katselut / video (${c.viewWindow || '?'})`}
+                  v={c.avgViews != null ? fmt(c.avgViews) : '–'}
+                  why="Keskiarvo 30 päivän ikkunassa aktiivisille, 90 vähemmän aktiivisille. Akselin oma määritelmä."
+                />
+                <Metric
+                  k="katselut / tilaaja"
+                  v={c.viewRatio != null ? `${Math.round(c.viewRatio * 100)} %` : '–'}
+                  why="Onko yleisö elossa. Alle 15 % on kuollut lista, yli 200 % tarkoittaa yleensä lainattua sisältöä."
+                />
                 {c.trend && (
                   <Metric
                     k="trendi"
@@ -502,10 +513,37 @@ export function Explorer({
                     tone={c.trend === 'nouseva' ? 'good' : c.trend === 'laskeva' ? 'bad' : undefined}
                   />
                 )}
-                {c.subsPerMonth != null && <Metric k="tilaajaa / kk" v={fmt(c.subsPerMonth)} />}
-                <Metric k="videoita / kk" v={c.uploadsPerMonth != null ? String(c.uploadsPerMonth) : '–'} />
-                <Metric k="edellisestä" v={c.daysSinceUpload != null ? `${c.daysSinceUpload} pv` : '–'} />
-                {c.shortsShare != null && <Metric k="lyhytvideoita" v={`${c.shortsShare} %`} />}
+                {c.subsPerMonth != null && (
+                  <Metric
+                    k="tilaajaa / kk"
+                    v={fmt(c.subsPerMonth)}
+                    why="Keskimääräinen kasvu kanavan koko elinkaarella. Mitattu koosta ja iästä, ei ennuste."
+                  />
+                )}
+                {c.commentRate != null && (
+                  <Metric
+                    k="kommentteja"
+                    v={`${c.commentRate} %`}
+                    why="Osuus katsojista jotka kommentoivat. Akseli pyysi painottamaan sitoutumista, ja kommentti maksaa katsojalle enemmän kuin tykkäys."
+                  />
+                )}
+                <Metric
+                  k="videoita / kk"
+                  v={c.uploadsPerMonth != null ? String(c.uploadsPerMonth) : '–'}
+                  why="Julkaisutahti 20 viimeisen videon otoksesta."
+                />
+                <Metric
+                  k="edellisestä"
+                  v={c.daysSinceUpload != null ? `${c.daysSinceUpload} pv` : '–'}
+                  why="Päiviä viimeisimmästä videosta. Yli 90 päivää tarkoittaa hiljentynyttä kanavaa."
+                />
+                {c.shortsShare != null && (
+                  <Metric
+                    k="lyhytvideoita"
+                    v={`${c.shortsShare} %`}
+                    why="Osuus alle 3 minuutin videoita. Shorts-kanava on eri tuote kuin pitkän videon kanava."
+                  />
+                )}
               </dl>
 
               <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -526,9 +564,39 @@ export function Explorer({
                 {c.hardwareSponsor && !c.competitor && <Tag tone="blue">laitteistodiili: {c.hardwareSponsor}</Tag>}
               </div>
 
-              {/* The reason as a whole sentence. This is the column that makes the list checkable,
-                  and it is the difference from the platforms that did not work for them. */}
-              <p className="mt-2.5 border-t border-line pt-2.5 text-xs leading-relaxed text-ink-2">{c.reason}</p>
+              {/* Why this row is here. The sentence is the summary; the breakdown underneath it
+                  accounts for every point, so the score is checkable rather than something to
+                  take on trust. */}
+              <div className="mt-2.5 border-t border-line pt-2.5">
+                <p className="text-xs leading-relaxed text-ink-2">{c.reason}</p>
+                <button
+                  onClick={() => setWhy(why === c.id ? null : c.id)}
+                  className="mt-1.5 cursor-pointer text-[11px] font-semibold text-forest hover:underline"
+                >
+                  {why === c.id ? 'Piilota erittely' : `Miksi ${c.score} pistettä?`}
+                </button>
+
+                {why === c.id && (
+                  <ul className="nums mt-2 space-y-1 rounded-brand-md bg-surface-3 p-3">
+                    {c.parts.map((p, i) => (
+                      <li key={i} className="flex items-start gap-3 text-[11px]">
+                        <span
+                          className={`w-8 shrink-0 text-right font-display font-extrabold ${
+                            p.points > 0 ? 'text-forest' : p.points < 0 ? 'text-critical' : 'text-ink-3'
+                          }`}
+                        >
+                          {p.points > 0 ? `+${p.points}` : p.points || '·'}
+                        </span>
+                        <span className="leading-snug text-ink-2">{p.text}</span>
+                      </li>
+                    ))}
+                    <li className="flex items-start gap-3 border-t border-line-strong pt-1.5 text-[11px]">
+                      <span className="w-8 shrink-0 text-right font-display font-extrabold">{c.score}</span>
+                      <span className="leading-snug font-semibold text-ink">yhteensä</span>
+                    </li>
+                  </ul>
+                )}
+              </div>
 
               {/* The only input in the whole interface. */}
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -665,10 +733,12 @@ export function Explorer({
 
 /* ---------- small pieces ---------- */
 
-function Metric({ k, v, tone }: { k: string; v: string; tone?: 'good' | 'bad' }) {
+function Metric({ k, v, tone, why }: { k: string; v: string; tone?: 'good' | 'bad'; why?: string }) {
   return (
-    <div>
-      <dt className="text-[10px] tracking-wide text-ink-3 uppercase">{k}</dt>
+    <div title={why}>
+      <dt className={`text-[10px] tracking-wide text-ink-3 uppercase ${why ? 'cursor-help decoration-dotted underline-offset-2 hover:underline' : ''}`}>
+        {k}
+      </dt>
       <dd className={`font-semibold ${tone === 'good' ? 'text-forest' : tone === 'bad' ? 'text-critical' : 'text-ink'}`}>
         {v}
       </dd>

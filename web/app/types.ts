@@ -44,6 +44,9 @@ export type Creator = {
   hardwareSponsor: string | null
   via: 'chart' | 'commenter'
   reason: string
+  /** Every point that moved the score, with the sentence that earned it. Sums to `score`. */
+  parts: { text: string; points: number }[]
+  madeForKids: boolean
 }
 
 export type MarketRow = {
