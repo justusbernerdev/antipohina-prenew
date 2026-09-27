@@ -1,59 +1,69 @@
 @import "tailwindcss";
 
-/* Dark control-room surface. Values below are validated against the dataviz
-   checks for this exact surface: node scripts/validate_palette.js
-   "#5ca83c,#4f8ad8" --mode dark --surface "#101312" -> ALL CHECKS PASS */
+/* Prenew's own brand, read out of prenew.com/fi-FI on 26.9.2026. These are their CSS values,
+   not an interpretation of them: forest green is the brand colour, electric blue carries actions,
+   and the surface is light because their site is light. */
 @theme {
-  --color-surface: #101312;
-  --color-surface-2: #171b19;
-  --color-surface-3: #1f2422;
-  --color-line: #2b3230;
-  --color-line-bright: #3d4643;
+  --color-surface: #f8f8ff; /* almost-gray, their page background */
+  --color-surface-2: #ffffff;
+  --color-surface-3: #f1f1f8;
+  --color-line: #e2e2ee;
+  --color-line-strong: #c9c9da;
 
-  --color-ink: #e8ece9;
-  --color-ink-2: #9aa5a0;
-  --color-ink-3: #6b7570;
+  --color-ink: #1d1d35; /* ink-dark */
+  --color-ink-2: #565668;
+  --color-ink-3: #777786; /* ink-muted */
 
-  /* categorical: discovery route. fixed order, never cycled */
-  --color-route-comment: #5ca83c;
-  --color-route-chart: #4f8ad8;
+  --color-forest: #256f50; /* the brand colour */
+  --color-forest-80: #518c73;
+  --color-forest-60: #7ca996;
+  --color-forest-40: #a8c5b9;
+  --color-forest-10: #eaf2ee;
 
-  /* status: reserved, never reused as a series colour */
-  --color-warn: #c9922e;
-  --color-serious: #c25a48;
+  --color-blue: #0a74ff; /* actions */
+  --color-blue-80: #3b90ff;
+  --color-blue-40: #9dc7ff;
+  --color-blue-10: #e6f1ff;
 
-  --font-display: var(--font-bricolage), ui-sans-serif, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --color-amber: #cc8800; /* their #fc0 darkened to hold text contrast on a light surface */
+  --color-amber-10: #fff6e0;
+  --color-critical: #d32f26; /* their #ff3b30 darkened for the same reason */
+  --color-critical-10: #fdeceb;
+
+  /* Categorical: discovery route. Two series, fixed order, never cycled. Forest green is the
+     commenter route because that route is the answer to their problem. */
+  --color-route-comment: #256f50;
+  --color-route-chart: #0a74ff;
+
+  --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-titillium), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-brand: 0.25rem;
+  --radius-brand-lg: 0.75rem;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   background: var(--color-surface);
   color: var(--color-ink);
-  font-family: var(--font-mono);
-  /* faint scanline texture: the product is refurbished hardware, not a SaaS dashboard */
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.014) 0px,
-    rgba(255, 255, 255, 0.014) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
-::selection {
-  background: var(--color-route-comment);
-  color: var(--color-surface);
+/* The engine produces a list a human has to be able to scan. Tabular figures keep the columns
+   of numbers aligned, which is the whole reason the file is readable at a glance. */
+.nums {
+  font-variant-numeric: tabular-nums;
 }
 
-/* one orchestrated page load, staggered */
+/* One entrance, used once per section, so the page settles rather than performs. */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -62,7 +72,7 @@ body {
 }
 
 .rise {
-  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -71,14 +81,13 @@ body {
   }
 }
 
-/* thin recessive scrollbar inside the list */
-.thin-scroll::-webkit-scrollbar {
-  width: 8px;
+::selection {
+  background: var(--color-forest-40);
+  color: var(--color-ink);
 }
-.thin-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-line-bright);
-  border-radius: 4px;
-}
-.thin-scroll::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Focus that is visible on a light surface without being decorative. */
+:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
 }
